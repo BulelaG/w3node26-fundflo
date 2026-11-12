@@ -395,7 +395,7 @@ def create_pdf(output_path):
         [
             Paragraph("<b>M3: Agent & Dashboards</b>", body_style),
             Paragraph("Autonomous agent scheduler, Admin Dashboard with kill-switch, Student Portal with explorer links, end-to-end demo rehearsal.", body_style),
-            Paragraph("In Progress", body_style)
+            Paragraph("COMPLETED", body_style)
         ]
     ]
     t_check = Table(checklist_data, colWidths=[110, 314, 80])
