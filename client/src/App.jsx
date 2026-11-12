@@ -1,122 +1,122 @@
-import { useState } from 'react'
-import heroImg from './assets/hero.png'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import './App.css'
+import React, { useState, useEffect, useCallback } from 'react';
+import Navbar from './components/Navbar';
+import AdminDashboard from './pages/AdminDashboard';
+import StudentPortal from './pages/StudentPortal';
+import { api } from './services/api';
 
-function App() {
-  const [count, setCount] = useState(0)
+export default function App() {
+  const [activeTab, setActiveTab] = useState('admin');
+  const [programme, setProgramme] = useState(null);
+  const [beneficiaries, setBeneficiaries] = useState([]);
+  const [schedules, setSchedules] = useState([]);
+  const [auditLogs, setAuditLogs] = useState([]);
+  const [auditSummary, setAuditSummary] = useState({});
+  const [isLoading, setIsLoading] = useState(true);
+  const [isRefreshing, setIsRefreshing] = useState(false);
+  const [error, setError] = useState(null);
+
+  const loadAllData = useCallback(async (silent = false) => {
+    if (!silent) setIsRefreshing(true);
+    try {
+      const [progs, bens, scheds, logs, summary] = await Promise.all([
+        api.getProgrammes().catch(() => []),
+        api.getBeneficiaries().catch(() => []),
+        api.getSchedules().catch(() => []),
+        api.getAuditLogs().catch(() => []),
+        api.getAuditSummary().catch(() => ({}))
+      ]);
+
+      if (progs && progs.length > 0) {
+        setProgramme(progs[0]);
+      }
+      setBeneficiaries(bens || []);
+      setSchedules(scheds || []);
+      setAuditLogs(logs || []);
+      setAuditSummary(summary || {});
+      setError(null);
+    } catch (err) {
+      console.error('Failed to load application state:', err);
+      setError('Unable to connect to FundFlow backend. Please verify server is running on http://localhost:5000');
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    loadAllData();
+    // Poll every 5 seconds to keep audit trail fresh
+    const interval = setInterval(() => {
+      loadAllData(true);
+    }, 5000);
+    return () => clearInterval(interval);
+  }, [loadAllData]);
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+      <Navbar
+        activeTab={activeTab}
+        setActiveTab={setActiveTab}
+        onRefresh={() => loadAllData(false)}
+        isRefreshing={isRefreshing}
+      />
 
-      <div className="ticks"></div>
+      <main className="container" style={{ flex: 1 }}>
+        {error && (
+          <div style={{
+            padding: '16px 20px',
+            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+            border: '1px solid rgba(239, 68, 68, 0.4)',
+            borderRadius: '10px',
+            color: '#fca5a5',
+            marginBottom: '24px',
+            fontSize: '0.88rem'
+          }}>
+            <strong>Connection Notice:</strong> {error}
+          </div>
+        )}
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
+        {isLoading ? (
+          <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--text-muted)' }}>
+            <div style={{ fontSize: '1.2rem', fontWeight: '600', marginBottom: '8px', color: '#ffffff' }}>
+              Initializing FundFlow Assurance Engine...
+            </div>
+            <p style={{ fontSize: '0.85rem' }}>Syncing with XRP Ledger consensus and policy store.</p>
+          </div>
+        ) : activeTab === 'admin' ? (
+          <AdminDashboard
+            programme={programme}
+            beneficiaries={beneficiaries}
+            schedules={schedules}
+            auditLogs={auditLogs}
+            auditSummary={auditSummary}
+            onActionSuccess={() => loadAllData(true)}
+          />
+        ) : (
+          <StudentPortal
+            beneficiaries={beneficiaries}
+          />
+        )}
+      </main>
 
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
-  )
+      {/* Footer */}
+      <footer style={{
+        borderTop: '1px solid var(--border-color)',
+        padding: '24px 0',
+        marginTop: '60px',
+        backgroundColor: 'rgba(7, 13, 30, 0.7)',
+        fontSize: '0.8rem',
+        color: 'var(--text-muted)'
+      }}>
+        <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 0 }}>
+          <div>
+            <strong>FundFlow</strong> — AI-Powered Student Funding Disbursement & Assurance Platform
+          </div>
+          <div>
+            Built for W3Node Hackathon 2026 • Agentic Finance Track (Sponsored by Ripple)
+          </div>
+        </div>
+      </footer>
+    </div>
+  );
 }
-
-export default App
