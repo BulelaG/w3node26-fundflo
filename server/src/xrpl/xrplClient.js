@@ -27,7 +27,6 @@ async function getXRPLClient() {
 
 /**
  * Get or auto-fund the Admin/Sponsor Disbursement Wallet
- * Uses XRPL_ADMIN_SEED from .env if provided, or requests test funds from faucet
  */
 async function getAdminWallet() {
   if (adminWallet) {
@@ -64,6 +63,44 @@ async function createAndFundStudentWallet() {
 }
 
 /**
+ * Query live ledger info for any XRPL account
+ */
+async function getAccountLedgerInfo(address) {
+  if (!address || !address.startsWith('r')) {
+    return { error: 'Invalid XRPL address format' };
+  }
+
+  const client = await getXRPLClient();
+  try {
+    const response = await client.request({
+      command: 'account_info',
+      account: address,
+      ledger_index: 'validated'
+    });
+
+    const accountData = response.result.account_data;
+    const balanceXRP = xrpl.dropsToXrp(accountData.Balance);
+
+    return {
+      address: accountData.Account,
+      balanceXRP: parseFloat(balanceXRP),
+      sequence: accountData.Sequence,
+      ownerCount: accountData.OwnerCount,
+      ledgerIndex: response.result.ledger_index,
+      validated: response.result.validated
+    };
+  } catch (error) {
+    // If account not found on ledger (unactivated, < 1 XRP)
+    return {
+      address,
+      balanceXRP: 0,
+      unactivated: true,
+      error: error.message
+    };
+  }
+}
+
+/**
  * Disconnect client (useful for graceful shutdown and tests)
  */
 async function disconnectXRPL() {
@@ -77,6 +114,7 @@ module.exports = {
   getXRPLClient,
   getAdminWallet,
   createAndFundStudentWallet,
+  getAccountLedgerInfo,
   disconnectXRPL,
   TESTNET_URL
 };

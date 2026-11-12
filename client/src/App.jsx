@@ -6,6 +6,7 @@ import { api } from './services/api';
 
 export default function App() {
   const [activeTab, setActiveTab] = useState('admin');
+  const [programmes, setProgrammes] = useState([]);
   const [programme, setProgramme] = useState(null);
   const [beneficiaries, setBeneficiaries] = useState([]);
   const [schedules, setSchedules] = useState([]);
@@ -27,7 +28,15 @@ export default function App() {
       ]);
 
       if (progs && progs.length > 0) {
-        setProgramme(progs[0]);
+        setProgrammes(progs);
+        // keep current selection if valid, else pick first
+        setProgramme(prev => {
+          if (prev) {
+            const found = progs.find(p => p.id === prev.id);
+            if (found) return found;
+          }
+          return progs[0];
+        });
       }
       setBeneficiaries(bens || []);
       setSchedules(scheds || []);
@@ -36,7 +45,7 @@ export default function App() {
       setError(null);
     } catch (err) {
       console.error('Failed to load application state:', err);
-      setError('Unable to connect to FundFlow backend. Please verify server is running on http://localhost:5000');
+      setError('Unable to connect to FundFlow backend on http://localhost:5000');
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);
@@ -45,15 +54,21 @@ export default function App() {
 
   useEffect(() => {
     loadAllData();
-    // Poll every 5 seconds to keep audit trail fresh
     const interval = setInterval(() => {
       loadAllData(true);
     }, 5000);
     return () => clearInterval(interval);
   }, [loadAllData]);
 
+  const handleSelectProgramme = (id) => {
+    const selected = programmes.find(p => p.id === id);
+    if (selected) {
+      setProgramme(selected);
+    }
+  };
+
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#000000' }}>
       <Navbar
         activeTab={activeTab}
         setActiveTab={setActiveTab}
@@ -65,9 +80,9 @@ export default function App() {
         {error && (
           <div style={{
             padding: '16px 20px',
-            backgroundColor: 'rgba(239, 68, 68, 0.15)',
+            backgroundColor: 'rgba(239, 68, 68, 0.12)',
             border: '1px solid rgba(239, 68, 68, 0.4)',
-            borderRadius: '10px',
+            borderRadius: '12px',
             color: '#fca5a5',
             marginBottom: '24px',
             fontSize: '0.88rem'
@@ -77,15 +92,17 @@ export default function App() {
         )}
 
         {isLoading ? (
-          <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--text-muted)' }}>
-            <div style={{ fontSize: '1.2rem', fontWeight: '600', marginBottom: '8px', color: '#ffffff' }}>
-              Initializing FundFlow Assurance Engine...
+          <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--text-dim)' }}>
+            <div className="font-display" style={{ fontSize: '1.3rem', fontWeight: '700', marginBottom: '8px', color: '#ffffff' }}>
+              Initializing FundFlow Enterprise Assurance Engine...
             </div>
-            <p style={{ fontSize: '0.85rem' }}>Syncing with XRP Ledger consensus and policy store.</p>
+            <p style={{ fontSize: '0.85rem' }}>Synchronizing policy mandates and XRP Ledger state.</p>
           </div>
         ) : activeTab === 'admin' ? (
           <AdminDashboard
             programme={programme}
+            programmes={programmes}
+            onSelectProgramme={handleSelectProgramme}
             beneficiaries={beneficiaries}
             schedules={schedules}
             auditLogs={auditLogs}
@@ -99,21 +116,21 @@ export default function App() {
         )}
       </main>
 
-      {/* Footer */}
+      {/* Production Footer */}
       <footer style={{
         borderTop: '1px solid var(--border-color)',
-        padding: '24px 0',
+        padding: '28px 0',
         marginTop: '60px',
-        backgroundColor: 'rgba(7, 13, 30, 0.7)',
+        backgroundColor: '#040406',
         fontSize: '0.8rem',
-        color: 'var(--text-muted)'
+        color: 'var(--text-dim)'
       }}>
-        <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 0 }}>
+        <div className="container" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px', paddingBottom: 0 }}>
           <div>
-            <strong>FundFlow</strong> — AI-Powered Student Funding Disbursement & Assurance Platform
+            <strong className="font-display" style={{ color: '#ffffff' }}>FundFlow</strong> — AI-Powered Student Funding Disbursement & Assurance Platform
           </div>
           <div>
-            Built for W3Node Hackathon 2026 • Agentic Finance Track (Sponsored by Ripple)
+            Engineered for W3Node 2026 • Agentic Finance Track (Sponsored by Ripple)
           </div>
         </div>
       </footer>

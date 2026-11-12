@@ -1,20 +1,35 @@
+@import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;500;700&family=Poppins:wght@300;400;500;600;700;800&display=swap');
+
 :root {
-  --bg-primary: #070d1e;
-  --bg-surface: #0f1b38;
-  --bg-surface-elevated: #16244c;
-  --border-color: #243566;
-  --text-main: #f1f5f9;
-  --text-muted: #94a3b8;
+  /* Ultra-Dark / Pitch Black Palette */
+  --bg-primary: #000000;
+  --bg-surface: #0a0a0f;
+  --bg-surface-elevated: #12121c;
+  --border-color: #1e1e2d;
+  --border-glow: rgba(0, 242, 254, 0.25);
+  
+  --text-main: #f8fafc;
+  --text-secondary: #cbd5e1;
+  --text-muted: #818cf880;
+  --text-dim: #64748b;
+
   --accent-cyan: #00f2fe;
   --accent-cyan-hover: #38bdf8;
+  --accent-cyan-glow: rgba(0, 242, 254, 0.4);
+
   --accent-green: #10b981;
   --accent-green-bg: rgba(16, 185, 129, 0.12);
+  --accent-green-border: rgba(16, 185, 129, 0.35);
+
   --accent-amber: #f59e0b;
   --accent-amber-bg: rgba(245, 158, 11, 0.12);
+
   --accent-red: #ef4444;
   --accent-red-bg: rgba(239, 68, 68, 0.14);
-  --accent-blue: #3b82f6;
-  --font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+  --accent-red-border: rgba(239, 68, 68, 0.35);
+
+  --font-family: 'Poppins', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+  --font-display: 'Comfortaa', cursive, -apple-system, sans-serif;
   --font-mono: "SFMono-Regular", Consolas, "Liberation Mono", Menlo, monospace;
 }
 
@@ -29,42 +44,51 @@ body {
   color: var(--text-main);
   font-family: var(--font-family);
   min-height: 100vh;
-  line-height: 1.5;
+  line-height: 1.55;
   -webkit-font-smoothing: antialiased;
 }
 
+h1, h2, h3, .font-display {
+  font-family: var(--font-display);
+  letter-spacing: -0.01em;
+}
+
 button {
-  font-family: inherit;
+  font-family: var(--font-family);
   cursor: pointer;
 }
 
 a {
   color: var(--accent-cyan);
   text-decoration: none;
+  transition: all 0.2s ease;
 }
 
 a:hover {
+  color: var(--accent-cyan-hover);
   text-decoration: underline;
 }
 
 .container {
-  max-width: 1380px;
+  width: 100%;
+  max-width: 1400px;
   margin: 0 auto;
-  padding: 0 24px 60px 24px;
+  padding: 0 20px 60px 20px;
 }
 
-/* Card Surfaces */
+/* Production Card Surfaces */
 .card {
   background: var(--bg-surface);
   border: 1px solid var(--border-color);
-  border-radius: 12px;
-  padding: 20px;
-  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
-  transition: transform 0.15s ease, border-color 0.15s ease;
+  border-radius: 14px;
+  padding: 24px;
+  box-shadow: 0 4px 25px rgba(0, 0, 0, 0.5);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease;
 }
 
 .card:hover {
-  border-color: rgba(0, 242, 254, 0.3);
+  border-color: var(--border-glow);
+  box-shadow: 0 4px 30px rgba(0, 242, 254, 0.08);
 }
 
 /* Buttons */
@@ -74,21 +98,23 @@ a:hover {
   justify-content: center;
   gap: 8px;
   padding: 10px 18px;
-  border-radius: 8px;
+  border-radius: 10px;
   font-weight: 600;
-  font-size: 0.9rem;
+  font-size: 0.88rem;
   transition: all 0.2s ease;
   border: none;
+  text-align: center;
 }
 
 .btn-primary {
-  background: linear-gradient(135deg, #00f2fe 0%, #4facfe 100%);
-  color: #070d1e;
-  box-shadow: 0 0 15px rgba(0, 242, 254, 0.35);
+  background: linear-gradient(135deg, #00f2fe 0%, #0284c7 100%);
+  color: #000000;
+  box-shadow: 0 0 16px var(--accent-cyan-glow);
+  font-weight: 700;
 }
 
 .btn-primary:hover:not(:disabled) {
-  box-shadow: 0 0 22px rgba(0, 242, 254, 0.6);
+  box-shadow: 0 0 25px rgba(0, 242, 254, 0.65);
   transform: translateY(-1px);
 }
 
@@ -100,26 +126,48 @@ a:hover {
 .btn-danger {
   background: var(--accent-red);
   color: #ffffff;
+  box-shadow: 0 0 14px rgba(239, 68, 68, 0.3);
 }
 
 .btn-danger:hover {
   background: #dc2626;
+  box-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
 }
 
 .btn-outline {
-  background: transparent;
+  background: var(--bg-surface-elevated);
   border: 1px solid var(--border-color);
   color: var(--text-main);
 }
 
 .btn-outline:hover {
-  background: var(--bg-surface-elevated);
   border-color: var(--accent-cyan);
+  background: #181824;
 }
 
-/* Tables */
+/* Form Inputs */
+.form-input {
+  width: 100%;
+  background: #09090f;
+  border: 1px solid var(--border-color);
+  color: var(--text-main);
+  padding: 10px 14px;
+  border-radius: 8px;
+  font-family: inherit;
+  font-size: 0.9rem;
+  outline: none;
+  transition: border-color 0.2s ease;
+}
+
+.form-input:focus {
+  border-color: var(--accent-cyan);
+  box-shadow: 0 0 10px rgba(0, 242, 254, 0.2);
+}
+
+/* Responsive Table */
 .table-container {
   overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 table {
@@ -127,46 +175,74 @@ table {
   border-collapse: collapse;
   text-align: left;
   font-size: 0.88rem;
+  min-width: 580px;
 }
 
 th {
   padding: 12px 14px;
-  color: var(--text-muted);
+  color: var(--text-dim);
   font-weight: 600;
   border-bottom: 1px solid var(--border-color);
   text-transform: uppercase;
-  font-size: 0.75rem;
-  letter-spacing: 0.05em;
+  font-size: 0.72rem;
+  letter-spacing: 0.06em;
 }
 
 td {
   padding: 14px;
-  border-bottom: 1px solid rgba(36, 53, 102, 0.5);
+  border-bottom: 1px solid rgba(32, 32, 46, 0.6);
 }
 
 tr:hover td {
-  background-color: rgba(22, 36, 76, 0.4);
+  background-color: rgba(19, 19, 28, 0.6);
 }
 
 .mono {
   font-family: var(--font-mono);
 }
 
-/* Scrollbars */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
+/* Modals */
+.modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.85);
+  backdrop-filter: blur(10px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 100;
+  padding: 20px;
 }
 
-::-webkit-scrollbar-track {
-  background: var(--bg-primary);
+.modal-content {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  border-radius: 16px;
+  width: 100%;
+  max-width: 520px;
+  padding: 28px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.8);
 }
 
-::-webkit-scrollbar-thumb {
-  background: var(--border-color);
-  border-radius: 4px;
-}
+/* Mobile-Friendly Adjustments */
+@media (max-width: 768px) {
+  .container {
+    padding: 0 14px 80px 14px;
+  }
 
-::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-cyan-hover);
+  .card {
+    padding: 18px 14px;
+  }
+
+  .mobile-hide {
+    display: none !important;
+  }
+
+  .mobile-show-flex {
+    display: flex !important;
+  }
+
+  .mobile-full {
+    width: 100% !important;
+  }
 }

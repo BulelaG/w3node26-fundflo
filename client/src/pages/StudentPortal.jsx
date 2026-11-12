@@ -8,7 +8,11 @@ import {
   AlertTriangle,
   Award,
   Zap,
-  Info
+  Info,
+  Download,
+  CreditCard,
+  QrCode,
+  FileText
 } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
 import { api } from '../services/api';
@@ -18,8 +22,10 @@ export default function StudentPortal({ beneficiaries = [] }) {
     beneficiaries.length > 0 ? beneficiaries[0].studentId : 'STU-001'
   );
   const [studentData, setStudentData] = useState(null);
+  const [liveLedgerBalance, setLiveLedgerBalance] = useState(null);
   const [isLoading, setIsLoading] = useState(false);
   const [copiedHash, setCopiedHash] = useState(null);
+  const [showReceiptModal, setShowReceiptModal] = useState(false);
 
   // Load student data when selectedStudentId changes
   useEffect(() => {
@@ -28,7 +34,18 @@ export default function StudentPortal({ beneficiaries = [] }) {
       setIsLoading(true);
       try {
         const data = await api.getStudentStatus(selectedStudentId);
-        if (isMounted) setStudentData(data);
+        if (isMounted) {
+          setStudentData(data);
+          // If student has a wallet, query live ledger balance
+          if (data.walletAddress) {
+            try {
+              const liveInfo = await api.getXrplAccountInfo(data.walletAddress);
+              if (isMounted) setLiveLedgerBalance(liveInfo);
+            } catch (e) {
+              console.log('Account not yet active on ledger');
+            }
+          }
+        }
       } catch (err) {
         console.error('Failed to load student status:', err);
       } finally {
@@ -58,27 +75,27 @@ export default function StudentPortal({ beneficiaries = [] }) {
   const isRejected = latestDisbursement && latestDisbursement.status === 'REJECTED';
 
   return (
-    <div style={{ maxWidth: '860px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
       {/* Student Switcher & Profile Header */}
-      <div className="card" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+      <div className="card" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px', padding: '20px 24px' }}>
         <div>
-          <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-            Viewing Student Beneficiary Portal
+          <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: '600' }}>
+            Verified Student Self-Service Portal
           </span>
           <div style={{ display: 'flex', alignItems: 'center', gap: '10px', marginTop: '4px' }}>
-            <h2 style={{ fontSize: '1.4rem', fontWeight: '800', color: '#ffffff' }}>
+            <h2 className="font-display" style={{ fontSize: '1.45rem', fontWeight: '700', color: '#ffffff' }}>
               {studentData ? studentData.fullName : 'Loading...'}
             </h2>
-            <StatusBadge status="ACTIVE" label="BURSARY RECIPIENT" />
+            <StatusBadge status="ACTIVE" label="BURSARY ENROLLED" />
           </div>
-          <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)' }}>
+          <p style={{ fontSize: '0.84rem', color: 'var(--text-dim)' }}>
             {studentData ? `${studentData.institution} • Student ID: ${studentData.studentId}` : ''}
           </p>
         </div>
 
         {/* Dropdown to switch student profile */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px' }}>
-          <label style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>Switch Student:</label>
+          <label style={{ fontSize: '0.8rem', color: 'var(--text-dim)' }}>Select Beneficiary:</label>
           <select
             value={selectedStudentId}
             onChange={(e) => setSelectedStudentId(e.target.value)}
@@ -89,6 +106,7 @@ export default function StudentPortal({ beneficiaries = [] }) {
               padding: '8px 14px',
               borderRadius: '8px',
               fontSize: '0.86rem',
+              fontWeight: '600',
               outline: 'none',
               cursor: 'pointer'
             }}
@@ -105,10 +123,10 @@ export default function StudentPortal({ beneficiaries = [] }) {
       {/* Hero Assurance Card */}
       <div className="card" style={{
         background: isVerified
-          ? 'radial-gradient(ellipse at top, rgba(16, 185, 129, 0.15) 0%, rgba(15, 27, 56, 0.95) 70%)'
-          : 'radial-gradient(ellipse at top, rgba(0, 242, 254, 0.1) 0%, rgba(15, 27, 56, 0.95) 70%)',
+          ? 'radial-gradient(ellipse at top, rgba(16, 185, 129, 0.15) 0%, rgba(10, 10, 15, 0.98) 75%)'
+          : 'radial-gradient(ellipse at top, rgba(0, 242, 254, 0.1) 0%, rgba(10, 10, 15, 0.98) 75%)',
         border: `1px solid ${isVerified ? 'rgba(16, 185, 129, 0.4)' : 'rgba(0, 242, 254, 0.25)'}`,
-        padding: '36px 28px',
+        padding: '38px 24px',
         textAlign: 'center',
         display: 'flex',
         flexDirection: 'column',
@@ -117,38 +135,71 @@ export default function StudentPortal({ beneficiaries = [] }) {
       }}>
         {/* Glow Icon */}
         <div style={{
-          width: '72px',
-          height: '72px',
+          width: '74px',
+          height: '74px',
           borderRadius: '50%',
           backgroundColor: isVerified ? 'rgba(16, 185, 129, 0.15)' : 'rgba(0, 242, 254, 0.15)',
           color: isVerified ? 'var(--accent-green)' : 'var(--accent-cyan)',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: isVerified ? '0 0 35px rgba(16, 185, 129, 0.4)' : '0 0 30px rgba(0, 242, 254, 0.3)',
-          marginBottom: '6px'
+          boxShadow: isVerified ? '0 0 40px rgba(16, 185, 129, 0.4)' : '0 0 35px rgba(0, 242, 254, 0.3)',
+          marginBottom: '4px'
         }}>
-          {isVerified ? <CheckCircle2 size={40} /> : <Clock size={40} />}
+          {isVerified ? <CheckCircle2 size={42} /> : <Clock size={42} />}
         </div>
 
         <div>
           <span style={{ fontSize: '0.82rem', fontWeight: '700', color: isVerified ? 'var(--accent-green)' : 'var(--accent-cyan)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            {isVerified ? 'Monthly Living Allowance Verified' : isPending ? 'Disbursement Awaiting Autonomous Agent Cycle' : 'Disbursement Evaluated'}
+            {isVerified ? 'Monthly Living Allowance Verified' : isPending ? 'Stipend In Autonomous Queue' : 'Disbursement Evaluated'}
           </span>
-          <div style={{ fontSize: '2.5rem', fontWeight: '900', color: '#ffffff', letterSpacing: '-0.03em', marginTop: '4px' }}>
+          <div className="font-display" style={{ fontSize: '2.6rem', fontWeight: '700', color: '#ffffff', letterSpacing: '-0.02em', marginTop: '6px' }}>
             {studentData ? `${studentData.monthlyAllowance} XRP` : '10 XRP'}
-            <span style={{ fontSize: '1.2rem', fontWeight: '500', color: 'var(--text-muted)', marginLeft: '10px' }}>
+            <span style={{ fontSize: '1.2rem', fontWeight: '300', color: 'var(--text-dim)', marginLeft: '12px' }}>
               (~R1,650.00 ZAR)
             </span>
           </div>
-          <p style={{ fontSize: '0.88rem', color: 'var(--text-muted)', maxWidth: '540px', margin: '8px auto 0 auto' }}>
+          <p style={{ fontSize: '0.88rem', color: 'var(--text-dim)', maxWidth: '560px', margin: '8px auto 0 auto' }}>
             {isVerified
-              ? 'Settled irreversibly on the XRP Ledger directly to your self-custody student wallet. No middlemen, no delayed checks.'
+              ? 'Settled irreversibly on the XRP Ledger directly to your self-custody student wallet. No middlemen, no deductions.'
               : 'Your scheduled stipend is in the queue for autonomous evaluation by FundFlow.'}
           </p>
         </div>
 
-        {/* Transparent Benefit Metrics */}
+        {/* Live Wallet & On-Chain Balance Strip */}
+        {studentData && studentData.walletAddress && (
+          <div style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            gap: '12px',
+            flexWrap: 'wrap',
+            padding: '8px 16px',
+            backgroundColor: 'var(--bg-surface-elevated)',
+            borderRadius: '9999px',
+            border: '1px solid var(--border-color)',
+            fontSize: '0.8rem'
+          }}>
+            <span style={{ color: 'var(--text-dim)' }}>Wallet:</span>
+            <span className="mono" style={{ color: 'var(--accent-cyan)' }}>
+              {studentData.walletAddress}
+            </span>
+            <button
+              onClick={() => copyToClipboard(studentData.walletAddress)}
+              style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: 'var(--text-dim)' }}
+              title="Copy Address"
+            >
+              <Copy size={12} />
+            </button>
+            {liveLedgerBalance && liveLedgerBalance.balanceXRP !== undefined && (
+              <span style={{ color: 'var(--accent-green)', fontWeight: '600', marginLeft: '6px' }}>
+                • On-Chain Balance: {liveLedgerBalance.balanceXRP} XRP
+              </span>
+            )}
+          </div>
+        )}
+
+        {/* 3 Value Metric Cards */}
         <div style={{
           display: 'grid',
           gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))',
@@ -156,58 +207,70 @@ export default function StudentPortal({ beneficiaries = [] }) {
           width: '100%',
           marginTop: '12px'
         }}>
-          <div style={{ padding: '14px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Middleman Rent Extracted</div>
-            <div style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--accent-green)', marginTop: '2px' }}>
+          <div style={{ padding: '16px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: '600' }}>Middleman Rent Extracted</div>
+            <div className="font-display" style={{ fontSize: '1.35rem', fontWeight: '700', color: 'var(--accent-green)', marginTop: '4px' }}>
               R0.00
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Zero bank charges or deduction fees</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>Zero predatory bank fees</div>
           </div>
 
-          <div style={{ padding: '14px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>Settlement Finality</div>
-            <div style={{ fontSize: '1.2rem', fontWeight: '800', color: 'var(--accent-cyan)', marginTop: '2px' }}>
+          <div style={{ padding: '16px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: '600' }}>Settlement Finality</div>
+            <div className="font-display" style={{ fontSize: '1.35rem', fontWeight: '700', color: 'var(--accent-cyan)', marginTop: '4px' }}>
               ~3.8 Seconds
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>RPCA Ledger Consensus</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>RPCA Ledger Consensus</div>
           </div>
 
-          <div style={{ padding: '14px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-            <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>XRPL Network Fee</div>
-            <div style={{ fontSize: '1.2rem', fontWeight: '800', color: '#ffffff', marginTop: '2px' }}>
+          <div style={{ padding: '16px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: '12px', border: '1px solid var(--border-color)' }}>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: '600' }}>Ledger Network Fee</div>
+            <div className="font-display" style={{ fontSize: '1.35rem', fontWeight: '700', color: '#ffffff', marginTop: '4px' }}>
               0.000012 XRP
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>Less than R0.01 per payment</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>Less than R0.01 per payment</div>
           </div>
         </div>
       </div>
 
-      {/* Cryptographic Proof & Ledger Explorer Card */}
+      {/* Cryptographic Proof Card */}
       {latestDisbursement && latestDisbursement.txHash && (
         <div className="card" style={{ borderLeft: '4px solid var(--accent-green)' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '10px' }}>
-            <ShieldCheck size={20} color="var(--accent-green)" />
-            <h3 style={{ fontSize: '1.05rem', fontWeight: '700', color: '#ffffff' }}>
-              Cryptographic Proof of Payout
-            </h3>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '8px', flexWrap: 'wrap', gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+              <ShieldCheck size={20} color="var(--accent-green)" />
+              <h3 className="font-display" style={{ fontSize: '1.1rem', fontWeight: '700', color: '#ffffff' }}>
+                Cryptographic Proof of Payout
+              </h3>
+            </div>
+
+            <button
+              onClick={() => setShowReceiptModal(true)}
+              className="btn btn-outline"
+              style={{ fontSize: '0.78rem', padding: '6px 12px' }}
+            >
+              <FileText size={14} color="var(--accent-cyan)" />
+              <span>Residency Assurance Statement</span>
+            </button>
           </div>
-          <p style={{ fontSize: '0.84rem', color: 'var(--text-muted)', marginBottom: '16px' }}>
-            Don't take anyone's word for it. Your funding was validated against the approved sponsor mandate and settled on the public XRP Ledger.
+
+          <p style={{ fontSize: '0.84rem', color: 'var(--text-dim)', marginBottom: '16px' }}>
+            Validated independently against the sponsor mandate and settled on the public XRP Ledger.
           </p>
 
           <div style={{
-            backgroundColor: 'var(--bg-primary)',
-            padding: '12px 16px',
-            borderRadius: '8px',
+            backgroundColor: '#000000',
+            padding: '14px 18px',
+            borderRadius: '10px',
             border: '1px solid var(--border-color)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'space-between',
             flexWrap: 'wrap',
-            gap: '10px'
+            gap: '12px'
           }}>
             <div style={{ overflow: 'hidden' }}>
-              <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', textTransform: 'uppercase' }}>XRPL Transaction Hash</div>
+              <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase', fontWeight: '600' }}>XRPL Transaction Hash</div>
               <div className="mono" style={{ fontSize: '0.82rem', color: 'var(--accent-cyan)', wordBreak: 'break-all' }}>
                 {latestDisbursement.txHash}
               </div>
@@ -220,7 +283,7 @@ export default function StudentPortal({ beneficiaries = [] }) {
                 style={{ padding: '6px 12px', fontSize: '0.78rem' }}
               >
                 <Copy size={13} />
-                {copiedHash ? 'Copied!' : 'Copy Hash'}
+                {copiedHash ? 'Copied!' : 'Copy'}
               </button>
 
               <a
@@ -240,8 +303,8 @@ export default function StudentPortal({ beneficiaries = [] }) {
 
       {/* Historical Disbursements Table */}
       <div className="card">
-        <h3 style={{ fontSize: '1.05rem', fontWeight: '700', color: '#ffffff', marginBottom: '14px' }}>
-          Disbursement Schedule & Assurance History
+        <h3 className="font-display" style={{ fontSize: '1.1rem', fontWeight: '700', color: '#ffffff', marginBottom: '14px' }}>
+          Disbursement Schedule & History
         </h3>
 
         <div className="table-container">
@@ -281,20 +344,85 @@ export default function StudentPortal({ beneficiaries = [] }) {
                       ) : d.rejectionReason ? (
                         <span style={{ fontSize: '0.75rem', color: '#ef4444' }}>{d.rejectionReason}</span>
                       ) : (
-                        <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>Pending evaluation</span>
+                        <span style={{ fontSize: '0.78rem', color: 'var(--text-dim)' }}>Pending evaluation</span>
                       )}
                     </td>
                   </tr>
                 ))
               ) : (
                 <tr>
-                  <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-muted)' }}>Loading records...</td>
+                  <td colSpan="4" style={{ textAlign: 'center', color: 'var(--text-dim)' }}>Loading records...</td>
                 </tr>
               )}
             </tbody>
           </table>
         </div>
       </div>
+
+      {/* MODAL: Official Student Residency Assurance Statement */}
+      {showReceiptModal && (
+        <div className="modal-overlay" onClick={() => setShowReceiptModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '580px' }}>
+            <div style={{ borderBottom: '1px solid var(--border-color)', paddingBottom: '16px', marginBottom: '20px' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <ShieldCheck size={24} color="var(--accent-green)" />
+                <h3 className="font-display" style={{ fontSize: '1.25rem', color: '#ffffff' }}>
+                  Student Funding Assurance Certificate
+                </h3>
+              </div>
+              <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)', marginTop: '4px' }}>
+                Cryptographic payment confirmation for student accommodation & landlords
+              </p>
+            </div>
+
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '14px', fontSize: '0.88rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #1c1c28', paddingBottom: '8px' }}>
+                <span style={{ color: 'var(--text-dim)' }}>Beneficiary:</span>
+                <span style={{ fontWeight: '600', color: '#fff' }}>{studentData?.fullName}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #1c1c28', paddingBottom: '8px' }}>
+                <span style={{ color: 'var(--text-dim)' }}>Student ID:</span>
+                <span style={{ color: '#fff' }}>{studentData?.studentId}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #1c1c28', paddingBottom: '8px' }}>
+                <span style={{ color: 'var(--text-dim)' }}>Institution:</span>
+                <span style={{ color: '#fff' }}>{studentData?.institution}</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #1c1c28', paddingBottom: '8px' }}>
+                <span style={{ color: 'var(--text-dim)' }}>Living Allowance:</span>
+                <span style={{ fontWeight: '700', color: 'var(--accent-cyan)' }}>{studentData?.monthlyAllowance} XRP (~R1,650)</span>
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'space-between', borderBottom: '1px solid #1c1c28', paddingBottom: '8px' }}>
+                <span style={{ color: 'var(--text-dim)' }}>Ledger Status:</span>
+                <span style={{ color: 'var(--accent-green)', fontWeight: '700' }}>VERIFIED (tesSUCCESS)</span>
+              </div>
+              <div style={{ overflow: 'hidden' }}>
+                <span style={{ color: 'var(--text-dim)', fontSize: '0.78rem' }}>Ledger Transaction Hash:</span>
+                <div className="mono" style={{ fontSize: '0.78rem', color: 'var(--accent-cyan)', wordBreak: 'break-all', marginTop: '4px' }}>
+                  {latestDisbursement?.txHash}
+                </div>
+              </div>
+            </div>
+
+            <div style={{ display: 'flex', gap: '10px', marginTop: '24px' }}>
+              <button
+                onClick={() => window.print()}
+                className="btn btn-outline"
+                style={{ flex: 1 }}
+              >
+                <Download size={14} /> Print Statement
+              </button>
+              <button
+                onClick={() => setShowReceiptModal(false)}
+                className="btn btn-primary"
+                style={{ flex: 1 }}
+              >
+                Done
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
