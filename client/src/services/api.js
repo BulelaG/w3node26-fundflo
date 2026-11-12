@@ -29,9 +29,13 @@ export const api = {
   updateBeneficiary: (studentId, data) => fetchJSON(`/beneficiaries/${studentId}`, { method: 'PATCH', body: JSON.stringify(data) }),
   getSchedules: () => fetchJSON('/schedules'),
 
-  // Audit Logs
+  // Audit Logs & Summary
   getAuditLogs: () => fetchJSON('/audit-logs'),
   getAuditSummary: () => fetchJSON('/audit-summary'),
+
+  // Forensic Analytics & Export
+  getAnalytics: () => fetchJSON('/analytics'),
+  getAuditorExportUrl: (format = 'csv') => `${API_BASE}/auditor/export?format=${format}`,
 
   // Agent Operations
   triggerAgentCycle: () => fetchJSON('/agent/trigger', { method: 'POST' }),
@@ -43,6 +47,7 @@ export const api = {
 
   // Student Portal
   getStudentStatus: (studentId) => fetchJSON(`/students/${studentId}/status`),
+  claimStudentAllowance: (studentId) => fetchJSON(`/students/${studentId}/claim`, { method: 'POST' }),
 
   // Manual payment injection
   validateAndPay: (payload) => fetchJSON('/disbursements/validate-and-pay', {

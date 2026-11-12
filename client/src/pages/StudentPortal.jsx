@@ -12,7 +12,9 @@ import {
   Download,
   CreditCard,
   QrCode,
-  FileText
+  FileText,
+  Send,
+  Coffee
 } from 'lucide-react';
 import StatusBadge from '../components/StatusBadge';
 import { api } from '../services/api';
@@ -26,6 +28,9 @@ export default function StudentPortal({ beneficiaries = [] }) {
   const [isLoading, setIsLoading] = useState(false);
   const [copiedHash, setCopiedHash] = useState(null);
   const [showReceiptModal, setShowReceiptModal] = useState(false);
+  const [showQrModal, setShowQrModal] = useState(false);
+  const [isClaiming, setIsClaiming] = useState(false);
+  const [claimNotification, setClaimNotification] = useState(null);
 
   // Load student data when selectedStudentId changes
   useEffect(() => {
@@ -36,7 +41,6 @@ export default function StudentPortal({ beneficiaries = [] }) {
         const data = await api.getStudentStatus(selectedStudentId);
         if (isMounted) {
           setStudentData(data);
-          // If student has a wallet, query live ledger balance
           if (data.walletAddress) {
             try {
               const liveInfo = await api.getXrplAccountInfo(data.walletAddress);
@@ -66,6 +70,43 @@ export default function StudentPortal({ beneficiaries = [] }) {
     setTimeout(() => setCopiedHash(null), 2000);
   };
 
+  // Student on-demand stipend claim
+  const handleClaimStipend = async () => {
+    setIsClaiming(true);
+    setClaimNotification(null);
+    try {
+      const res = await api.claimStudentAllowance(selectedStudentId);
+      if (res.success) {
+        setClaimNotification({
+          type: 'success',
+          title: 'Stipend Disbursed & Verified!',
+          message: `10 XRP settled on XRPL Testnet! Hash: ${res.decision.txHash ? res.decision.txHash.substring(0, 10) + '...' : ''}`
+        });
+      } else {
+        setClaimNotification({
+          type: 'error',
+          title: 'Claim Intercepted by Policy',
+          message: `Reason: ${res.decision.reasonCode || 'Policy requirement failed.'}`
+        });
+      }
+      // Reload student data
+      const updated = await api.getStudentStatus(selectedStudentId);
+      setStudentData(updated);
+      if (updated.walletAddress) {
+        const liveInfo = await api.getXrplAccountInfo(updated.walletAddress);
+        setLiveLedgerBalance(liveInfo);
+      }
+    } catch (err) {
+      setClaimNotification({
+        type: 'error',
+        title: 'Claim Failed',
+        message: err.message
+      });
+    } finally {
+      setIsClaiming(false);
+    }
+  };
+
   const latestDisbursement = studentData && studentData.disbursements && studentData.disbursements.length > 0
     ? studentData.disbursements[0]
     : null;
@@ -75,7 +116,32 @@ export default function StudentPortal({ beneficiaries = [] }) {
   const isRejected = latestDisbursement && latestDisbursement.status === 'REJECTED';
 
   return (
-    <div style={{ maxWidth: '900px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+    <div style={{ maxWidth: '920px', margin: '0 auto', display: 'flex', flexDirection: 'column', gap: '24px' }}>
+      {/* Toast Notification */}
+      {claimNotification && (
+        <div style={{
+          padding: '14px 20px',
+          borderRadius: '12px',
+          backgroundColor: claimNotification.type === 'success' ? 'rgba(16, 185, 129, 0.95)' : 'rgba(239, 68, 68, 0.95)',
+          color: '#ffffff',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          boxShadow: '0 10px 40px rgba(0,0,0,0.8)'
+        }}>
+          <div>
+            <div style={{ fontWeight: '700', fontSize: '0.92rem' }}>{claimNotification.title}</div>
+            <div style={{ fontSize: '0.84rem' }}>{claimNotification.message}</div>
+          </div>
+          <button
+            onClick={() => setClaimNotification(null)}
+            style={{ background: 'transparent', border: 'none', color: '#fff', fontSize: '1.2rem', cursor: 'pointer' }}
+          >
+            ×
+          </button>
+        </div>
+      )}
+
       {/* Student Switcher & Profile Header */}
       <div className="card" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px', padding: '20px 24px' }}>
         <div>
@@ -151,7 +217,7 @@ export default function StudentPortal({ beneficiaries = [] }) {
 
         <div>
           <span style={{ fontSize: '0.82rem', fontWeight: '700', color: isVerified ? 'var(--accent-green)' : 'var(--accent-cyan)', letterSpacing: '0.08em', textTransform: 'uppercase' }}>
-            {isVerified ? 'Monthly Living Allowance Verified' : isPending ? 'Stipend In Autonomous Queue' : 'Disbursement Evaluated'}
+            {isVerified ? 'Monthly Living Allowance Verified' : isPending ? 'Stipend Pending Autonomous Run' : 'Disbursement Evaluated'}
           </span>
           <div className="font-display" style={{ fontSize: '2.6rem', fontWeight: '700', color: '#ffffff', letterSpacing: '-0.02em', marginTop: '6px' }}>
             {studentData ? `${studentData.monthlyAllowance} XRP` : '10 XRP'}
@@ -198,6 +264,28 @@ export default function StudentPortal({ beneficiaries = [] }) {
             )}
           </div>
         )}
+
+        {/* Student Action Buttons */}
+        <div style={{ display: 'flex', gap: '10px', marginTop: '4px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <button
+            onClick={handleClaimStipend}
+            disabled={isClaiming}
+            className="btn btn-primary"
+            style={{ padding: '9px 18px', fontSize: '0.84rem' }}
+          >
+            <Send size={14} />
+            <span>{isClaiming ? 'Agent Evaluating Claim...' : 'Claim Monthly Stipend'}</span>
+          </button>
+
+          <button
+            onClick={() => setShowQrModal(true)}
+            className="btn btn-outline"
+            style={{ padding: '9px 18px', fontSize: '0.84rem' }}
+          >
+            <QrCode size={14} color="var(--accent-cyan)" />
+            <span>Merchant Tap-to-Pay QR</span>
+          </button>
+        </div>
 
         {/* 3 Value Metric Cards */}
         <div style={{
@@ -359,7 +447,7 @@ export default function StudentPortal({ beneficiaries = [] }) {
         </div>
       </div>
 
-      {/* MODAL: Official Student Residency Assurance Statement */}
+      {/* MODAL 1: Official Student Residency Assurance Statement */}
       {showReceiptModal && (
         <div className="modal-overlay" onClick={() => setShowReceiptModal(false)}>
           <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '580px' }}>
@@ -420,6 +508,52 @@ export default function StudentPortal({ beneficiaries = [] }) {
                 Done
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL 2: Merchant Tap-to-Pay QR Code Simulation */}
+      {showQrModal && (
+        <div className="modal-overlay" onClick={() => setShowQrModal(false)}>
+          <div className="modal-content" onClick={(e) => e.stopPropagation()} style={{ textAlign: 'center', maxWidth: '420px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', marginBottom: '10px' }}>
+              <Coffee size={22} color="var(--accent-cyan)" />
+              <h3 className="font-display" style={{ fontSize: '1.25rem', color: '#ffffff' }}>
+                Campus Merchant Tap-to-Pay
+              </h3>
+            </div>
+            <p style={{ fontSize: '0.8rem', color: 'var(--text-dim)', marginBottom: '20px' }}>
+              Scan at authorized campus bookstores, cafeterias, and transport terminals.
+            </p>
+
+            {/* Simulated QR Box */}
+            <div style={{
+              width: '200px',
+              height: '200px',
+              margin: '0 auto 20px auto',
+              backgroundColor: '#ffffff',
+              borderRadius: '16px',
+              padding: '16px',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 0 30px rgba(0, 242, 254, 0.3)'
+            }}>
+              <QrCode size={160} color="#000000" />
+            </div>
+
+            <div className="mono" style={{ fontSize: '0.78rem', color: 'var(--accent-cyan)', wordBreak: 'break-all', marginBottom: '16px' }}>
+              {studentData?.walletAddress}
+            </div>
+
+            <button
+              onClick={() => setShowQrModal(false)}
+              className="btn btn-primary"
+              style={{ width: '100%' }}
+            >
+              Close QR Pass
+            </button>
           </div>
         </div>
       )}

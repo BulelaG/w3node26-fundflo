@@ -1,7 +1,7 @@
 const express = require('express');
 const router = express.Router();
 const { processDisbursement } = require('../policy/policyEngine');
-const { getBeneficiaryById, getSchedules } = require('../data/store');
+const { getBeneficiaryById, getSchedules, getScheduleById, state } = require('../data/store');
 
 // POST /api/disbursements/validate-and-pay
 router.post('/disbursements/validate-and-pay', async (req, res) => {
@@ -26,6 +26,51 @@ router.post('/disbursements/validate-and-pay', async (req, res) => {
         ...result
       });
     }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+// POST /api/students/:studentId/claim (Student-initiated allowance claim)
+router.post('/students/:studentId/claim', async (req, res) => {
+  const beneficiary = getBeneficiaryById(req.params.studentId);
+  if (!beneficiary) {
+    return res.status(404).json({ error: 'Student not found in registered beneficiaries' });
+  }
+
+  // Find their schedule or generate on-demand claim
+  const allSchedules = getSchedules();
+  let pendingSched = allSchedules.find(s => s.studentId === beneficiary.studentId && s.status === 'PENDING');
+
+  if (!pendingSched) {
+    // Generate an on-demand claim schedule
+    pendingSched = {
+      scheduleId: `SCH-CLAIM-${Date.now().toString().slice(-4)}`,
+      studentId: beneficiary.studentId,
+      programmeId: beneficiary.programmeId,
+      period: "November 2026 Claim",
+      amount: beneficiary.monthlyAllowance,
+      status: "PENDING",
+      txHash: null,
+      rejectionReason: null,
+      updatedAt: new Date().toISOString()
+    };
+    state.schedules.push(pendingSched);
+  }
+
+  try {
+    const result = await processDisbursement({
+      programmeId: beneficiary.programmeId,
+      studentId: beneficiary.studentId,
+      amount: pendingSched.amount,
+      scheduleId: pendingSched.scheduleId
+    });
+
+    res.json({
+      success: result.approved && result.executed,
+      scheduleId: pendingSched.scheduleId,
+      decision: result
+    });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }

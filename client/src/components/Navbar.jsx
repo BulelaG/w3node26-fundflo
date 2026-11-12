@@ -1,25 +1,40 @@
 import React, { useState } from 'react';
-import { ShieldCheck, Layers, UserCheck, RefreshCw, Radio, Menu, X, PlusCircle } from 'lucide-react';
+import {
+  ShieldCheck,
+  Layers,
+  UserCheck,
+  RefreshCw,
+  Radio,
+  Menu,
+  X,
+  TrendingUp,
+  FileCheck2
+} from 'lucide-react';
 
 export default function Navbar({
   activeTab,
   setActiveTab,
   onRefresh,
-  isRefreshing,
-  onOpenNewProgrammeModal,
-  onOpenNewBeneficiaryModal
+  isRefreshing
 }) {
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
+  const navItems = [
+    { id: 'admin', label: 'Admin Deck', icon: Layers },
+    { id: 'analytics', label: 'Treasury & Savings', icon: TrendingUp },
+    { id: 'auditor', label: 'Auditor-General Hub', icon: FileCheck2 },
+    { id: 'student', label: 'Student Portal', icon: UserCheck }
+  ];
+
   return (
     <header style={{
-      backgroundColor: 'rgba(0, 0, 0, 0.92)',
+      backgroundColor: 'rgba(0, 0, 0, 0.95)',
       backdropFilter: 'blur(16px)',
       borderBottom: '1px solid var(--border-color)',
       position: 'sticky',
       top: 0,
       zIndex: 50,
-      padding: '14px 0',
+      padding: '12px 0',
       marginBottom: '24px'
     }}>
       <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 0 }}>
@@ -61,55 +76,43 @@ export default function Navbar({
           </div>
         </div>
 
-        {/* Desktop View Switcher */}
+        {/* Desktop View Switcher (All 4 Enterprise Tabs) */}
         <div className="mobile-hide" style={{
           display: 'flex',
           backgroundColor: 'var(--bg-surface-elevated)',
           padding: '4px',
           borderRadius: '12px',
-          border: '1px solid var(--border-color)'
+          border: '1px solid var(--border-color)',
+          gap: '2px'
         }}>
-          <button
-            onClick={() => setActiveTab('admin')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 18px',
-              borderRadius: '8px',
-              fontSize: '0.85rem',
-              fontWeight: '600',
-              border: 'none',
-              cursor: 'pointer',
-              backgroundColor: activeTab === 'admin' ? 'var(--accent-cyan)' : 'transparent',
-              color: activeTab === 'admin' ? '#000000' : 'var(--text-dim)',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <Layers size={16} />
-            Administrator Control
-          </button>
+          {navItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = activeTab === item.id;
 
-          <button
-            onClick={() => setActiveTab('student')}
-            style={{
-              display: 'flex',
-              alignItems: 'center',
-              gap: '8px',
-              padding: '8px 18px',
-              borderRadius: '8px',
-              fontSize: '0.85rem',
-              fontWeight: '600',
-              border: 'none',
-              cursor: 'pointer',
-              backgroundColor: activeTab === 'student' ? 'var(--accent-cyan)' : 'transparent',
-              color: activeTab === 'student' ? '#000000' : 'var(--text-dim)',
-              transition: 'all 0.2s ease'
-            }}
-          >
-            <UserCheck size={16} />
-            Student Assurance
-          </button>
+            return (
+              <button
+                key={item.id}
+                onClick={() => setActiveTab(item.id)}
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '7px',
+                  padding: '7px 14px',
+                  borderRadius: '8px',
+                  fontSize: '0.84rem',
+                  fontWeight: '600',
+                  border: 'none',
+                  cursor: 'pointer',
+                  backgroundColor: isActive ? 'var(--accent-cyan)' : 'transparent',
+                  color: isActive ? '#000000' : 'var(--text-dim)',
+                  transition: 'all 0.2s ease'
+                }}
+              >
+                <Icon size={15} />
+                <span>{item.label}</span>
+              </button>
+            );
+          })}
         </div>
 
         {/* Actions & Status */}
@@ -139,24 +142,15 @@ export default function Navbar({
             <RefreshCw size={14} style={{ animation: isRefreshing ? 'spin 1s linear infinite' : 'none' }} />
             <span className="mobile-hide">Sync</span>
           </button>
-
-          {/* Mobile Menu Trigger */}
-          <button
-            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-            className="btn btn-outline"
-            style={{ display: 'none', padding: '8px' }}
-            aria-label="Toggle menu"
-          >
-            {mobileMenuOpen ? <X size={20} /> : <Menu size={20} />}
-          </button>
         </div>
       </div>
 
-      {/* Mobile Tab Switcher Strip */}
+      {/* Mobile Tab Switcher Strip (Horizontal scrollable bar) */}
       <div style={{
         display: 'none',
-        marginTop: '12px',
-        padding: '0 14px'
+        marginTop: '10px',
+        padding: '0 12px',
+        overflowX: 'auto'
       }} className="mobile-show-flex">
         <div style={{
           display: 'flex',
@@ -164,38 +158,29 @@ export default function Navbar({
           backgroundColor: 'var(--bg-surface-elevated)',
           padding: '4px',
           borderRadius: '10px',
-          border: '1px solid var(--border-color)'
+          border: '1px solid var(--border-color)',
+          gap: '4px',
+          minWidth: '380px'
         }}>
-          <button
-            onClick={() => setActiveTab('admin')}
-            style={{
-              flex: 1,
-              padding: '8px',
-              borderRadius: '7px',
-              fontSize: '0.82rem',
-              fontWeight: '600',
-              border: 'none',
-              backgroundColor: activeTab === 'admin' ? 'var(--accent-cyan)' : 'transparent',
-              color: activeTab === 'admin' ? '#000000' : 'var(--text-dim)'
-            }}
-          >
-            Admin View
-          </button>
-          <button
-            onClick={() => setActiveTab('student')}
-            style={{
-              flex: 1,
-              padding: '8px',
-              borderRadius: '7px',
-              fontSize: '0.82rem',
-              fontWeight: '600',
-              border: 'none',
-              backgroundColor: activeTab === 'student' ? 'var(--accent-cyan)' : 'transparent',
-              color: activeTab === 'student' ? '#000000' : 'var(--text-dim)'
-            }}
-          >
-            Student View
-          </button>
+          {navItems.map((item) => (
+            <button
+              key={item.id}
+              onClick={() => setActiveTab(item.id)}
+              style={{
+                flex: 1,
+                padding: '7px 4px',
+                borderRadius: '7px',
+                fontSize: '0.76rem',
+                fontWeight: '600',
+                border: 'none',
+                backgroundColor: activeTab === item.id ? 'var(--accent-cyan)' : 'transparent',
+                color: activeTab === item.id ? '#000000' : 'var(--text-dim)',
+                whiteSpace: 'nowrap'
+              }}
+            >
+              {item.label}
+            </button>
+          ))}
         </div>
       </div>
     </header>

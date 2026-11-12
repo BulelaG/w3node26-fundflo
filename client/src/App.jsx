@@ -1,6 +1,8 @@
 import React, { useState, useEffect, useCallback } from 'react';
 import Navbar from './components/Navbar';
 import AdminDashboard from './pages/AdminDashboard';
+import AnalyticsDashboard from './pages/AnalyticsDashboard';
+import AuditorPortal from './pages/AuditorPortal';
 import StudentPortal from './pages/StudentPortal';
 import { api } from './services/api';
 
@@ -29,7 +31,6 @@ export default function App() {
 
       if (progs && progs.length > 0) {
         setProgrammes(progs);
-        // keep current selection if valid, else pick first
         setProgramme(prev => {
           if (prev) {
             const found = progs.find(p => p.id === prev.id);
@@ -108,6 +109,12 @@ export default function App() {
             auditLogs={auditLogs}
             auditSummary={auditSummary}
             onActionSuccess={() => loadAllData(true)}
+          />
+        ) : activeTab === 'analytics' ? (
+          <AnalyticsDashboard />
+        ) : activeTab === 'auditor' ? (
+          <AuditorPortal
+            auditLogs={auditLogs}
           />
         ) : (
           <StudentPortal
