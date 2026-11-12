@@ -385,17 +385,17 @@ def create_pdf(output_path):
         [
             Paragraph("<b>M1: Monorepo & Git</b>", body_style),
             Paragraph("Initialize git, <code>.gitignore</code>, scaffold <code>server/</code> and <code>client/</code>, configure DB fallback, define <code>API_SPEC.md</code>.", body_style),
-            Paragraph("<font color='#15803D'><b>COMPLETED (dev branch)</b></font>", body_style)
+            Paragraph("<font color='#15803D'><b>COMPLETED</b></font>", body_style)
         ],
         [
             Paragraph("<b>M2: Policy & XRPL</b>", body_style),
             Paragraph("XRPL Testnet connection, faucet auto-funding, independent policy validation rules, duplicate prevention tests.", body_style),
-            Paragraph("<font color='#D97706'><b>Next Up</b></font>", body_style)
+            Paragraph("<font color='#D97706'><b>COMPLETED (5/5 Tests Passed)</b></font>", body_style)
         ],
         [
             Paragraph("<b>M3: Agent & Dashboards</b>", body_style),
             Paragraph("Autonomous agent scheduler, Admin Dashboard with kill-switch, Student Portal with explorer links, end-to-end demo rehearsal.", body_style),
-            Paragraph("Queued", body_style)
+            Paragraph("In Progress", body_style)
         ]
     ]
     t_check = Table(checklist_data, colWidths=[110, 314, 80])
