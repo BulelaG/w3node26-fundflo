@@ -140,7 +140,7 @@ export default function AuthScreen({ onLogin }) {
       <div className="auth-left">
         <div className="auth-brand">
           <span className="auth-brand-mark">
-            <Waves size={22} strokeWidth={2.2} />
+            <img src="/fundflow-logo.png" alt="FundFlow Logo" className="brand-logo-img" />
           </span>
           <span className="auth-brand-copy">
             <strong>FundFlow</strong>

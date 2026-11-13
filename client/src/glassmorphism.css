@@ -338,3 +338,41 @@ input:focus {
 .app-footer span {
   color: #cbd5e1 !important;
 }
+
+/* ============================================================
+   BRAND LOGO STYLES
+   ============================================================ */
+.brand-logo-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  display: block;
+  border-radius: 8px;
+}
+
+.topbar-brand-mark,
+.auth-brand-mark,
+.bursary-brand-mark {
+  background: transparent !important;
+  border: none !important;
+  overflow: hidden;
+  display: flex !important;
+  align-items: center;
+  justify-content: center;
+}
+
+.topbar-brand-mark {
+  width: 38px !important;
+  height: 38px !important;
+}
+
+.bursary-brand-mark {
+  width: 36px !important;
+  height: 36px !important;
+}
+
+.auth-brand-mark {
+  width: 44px !important;
+  height: 44px !important;
+}
+

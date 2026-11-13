@@ -1373,7 +1373,7 @@ function StudentPortal({ session }) {
             <div className="bursary-card-top">
               <div className="bursary-brand">
                 <span className="bursary-brand-mark">
-                  <Waves size={19} />
+                  <img src="/fundflow-logo.png" alt="FundFlow Logo" className="brand-logo-img" />
                 </span>
                 <span>
                   <strong>FundFlow</strong>
@@ -2188,7 +2188,7 @@ function App() {
         <div className="topbar">
           <div className="topbar-brand">
             <span className="topbar-brand-mark" aria-hidden="true">
-              <Waves size={21} strokeWidth={2.2} />
+              <img src="/fundflow-logo.png" alt="FundFlow Logo" className="brand-logo-img" />
             </span>
             <span className="topbar-brand-copy">
               <strong>FundFlow</strong>
