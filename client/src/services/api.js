@@ -240,6 +240,20 @@ export function getStudentStatus(studentId) {
   })
 }
 
+export function toggleProgrammePause(id, programmeId, isPaused) {
+  return request(
+    `/programmes/${encodeURIComponent(id)}/toggle-pause`,
+    {
+      method: 'PATCH',
+      fallback: () => ({
+        message: 'Programme pause status updated in demo mode',
+        programmeId,
+        isPaused: !isPaused,
+      }),
+    },
+  )
+}
+
 export function triggerAgent() {
   return request('/agent/trigger', {
     method: 'POST',

@@ -14,8 +14,10 @@ import {
   FileCheck2,
   LayoutDashboard,
   LoaderCircle,
+  Power,
   RefreshCw,
   ShieldCheck,
+  SlidersHorizontal,
   UserRound,
   Users,
   Wallet,
@@ -30,6 +32,7 @@ import {
   getSchedules,
   getStudentStatus,
   triggerAgent,
+  toggleProgrammePause,
 } from './services/api.js'
 import './App.css'
 
@@ -64,6 +67,17 @@ function compactHash(hash) {
   if (!hash) return null
   if (hash.length <= 18) return hash
   return `${hash.slice(0, 10)}...${hash.slice(-8)}`
+}
+
+function getStudentCap(student, overrides) {
+  const override = overrides[student.studentId]
+  if (override === undefined || override === '') {
+    return Number(student.monthlyAllowance) || 0
+  }
+  const parsed = Number(override)
+  return Number.isFinite(parsed) && parsed >= 0
+    ? parsed
+    : Number(student.monthlyAllowance) || 0
 }
 
 function StatusBadge({ status }) {
@@ -194,7 +208,7 @@ function MetricCard({ label, value, detail, icon: Icon, tone = 'blue', trend }) 
   )
 }
 
-function ProgrammeCard({ programme }) {
+function ProgrammeCard({ programme, isPaused }) {
   if (!programme) {
     return (
       <section className="panel programme-panel">
@@ -229,7 +243,7 @@ function ProgrammeCard({ programme }) {
           <div className="eyebrow">ACTIVE MANDATE</div>
           <h2>Programme mandate</h2>
         </div>
-        <StatusBadge status={programme.isPaused ? 'PAUSED' : 'ACTIVE'} />
+        <StatusBadge status={isPaused ? 'PAUSED' : 'ACTIVE'} />
       </div>
 
       <div className="programme-name-row">
@@ -281,7 +295,139 @@ function ProgrammeCard({ programme }) {
   )
 }
 
-function AgentCard({ isRunning, triggerResult, onTrigger, error }) {
+function PolicyControls({
+  beneficiaries,
+  capOverrides,
+  onCapChange,
+  currency,
+  killSwitchActive,
+  onToggleKillSwitch,
+  isTogglingKillSwitch,
+  killSwitchError,
+}) {
+  return (
+    <section className="panel policy-controls-panel">
+      <div className="panel-heading policy-controls-heading">
+        <div>
+          <div className="eyebrow">MANDATE &amp; POLICY CONTROLS</div>
+          <h2>Independent policy guardrails</h2>
+          <p>Set per-student monthly limits and stop autonomous execution instantly.</p>
+        </div>
+        <span className="demo-control-tag">
+          <SlidersHorizontal size={13} />
+          DEMO CONTROLS
+        </span>
+      </div>
+
+      <div className="policy-controls-grid">
+        <div className="cap-control-list">
+          <div className="cap-list-heading">
+            <span>BENEFICIARY</span>
+            <span>MONTHLY CAP · {currency}</span>
+          </div>
+          {beneficiaries.length ? (
+            beneficiaries.map((student) => (
+              <div className="cap-control-row" key={student.studentId}>
+                <span className="cap-student">
+                  <span className="cap-avatar">
+                    {student.fullName
+                      .split(' ')
+                      .map((part) => part[0])
+                      .slice(0, 2)
+                      .join('')}
+                  </span>
+                  <span>
+                    <strong>{student.fullName}</strong>
+                    <small>{student.studentId}</small>
+                  </span>
+                </span>
+                <label className="cap-input-wrap">
+                  <span className="sr-only">
+                    Monthly budget cap for {student.fullName}
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="50"
+                    value={
+                      capOverrides[student.studentId] ??
+                      student.monthlyAllowance
+                    }
+                    onChange={(event) =>
+                      onCapChange(student.studentId, event.target.value)
+                    }
+                  />
+                  <span>{currency}</span>
+                </label>
+              </div>
+            ))
+          ) : (
+            <div className="empty-state cap-empty">
+              Beneficiary limits will appear here.
+            </div>
+          )}
+          <div className="cap-control-note">
+            Edits apply to policy demos in this session; the API does not yet
+            persist individual caps.
+          </div>
+        </div>
+
+        <aside
+          className={`kill-switch-panel ${killSwitchActive ? 'engaged' : ''}`}
+        >
+          <div className="kill-switch-heading">
+            <span className="kill-switch-icon">
+              <Power size={18} />
+            </span>
+            <span
+              className={`kill-switch-state ${killSwitchActive ? 'halted' : ''}`}
+            >
+              <span />
+              {killSwitchActive ? 'ENGAGED' : 'STANDBY'}
+            </span>
+          </div>
+          <h3>Emergency Agent Kill-Switch</h3>
+          <p>
+            {killSwitchActive
+              ? 'Autonomous payment cycles are halted until the mandate is resumed.'
+              : 'Pause the mandate to prevent the agent from starting new payment cycles.'}
+          </p>
+          <div className="kill-switch-action">
+            <span>{killSwitchActive ? 'Agent execution halted' : 'Agent execution allowed'}</span>
+            <button
+              className={`switch-control ${killSwitchActive ? 'on' : ''}`}
+              type="button"
+              role="switch"
+              aria-checked={killSwitchActive}
+              aria-label="Toggle emergency Agent Kill-Switch"
+              onClick={onToggleKillSwitch}
+              disabled={isTogglingKillSwitch}
+            >
+              <span />
+            </button>
+          </div>
+          {killSwitchError && (
+            <div className="kill-switch-error">{killSwitchError}</div>
+          )}
+          <div className="kill-switch-footnote">
+            Toggle is backed by the programme pause endpoint. Settled ledger
+            transactions cannot be reversed.
+          </div>
+        </aside>
+      </div>
+    </section>
+  )
+}
+
+function AgentCard({
+  isRunning,
+  triggerResult,
+  onTrigger,
+  onTestPolicyBlock,
+  policyTestResult,
+  isKillSwitchActive,
+  error,
+}) {
   return (
     <section className="agent-card">
       <div className="agent-card-glow" />
@@ -290,9 +436,9 @@ function AgentCard({ isRunning, triggerResult, onTrigger, error }) {
           <Zap size={19} fill="currentColor" />
         </span>
         <span className="agent-label">AUTONOMOUS AGENT</span>
-        <span className="agent-live">
+        <span className={`agent-live ${isKillSwitchActive ? 'is-halted' : ''}`}>
           <span />
-          READY
+          {isKillSwitchActive ? 'HALTED' : 'READY'}
         </span>
       </div>
       <h2>Disbursement cycle</h2>
@@ -340,28 +486,65 @@ function AgentCard({ isRunning, triggerResult, onTrigger, error }) {
         </div>
       )}
 
+      {policyTestResult && (
+        <div className="policy-test-result" role="status">
+          <span className="policy-test-result-icon">
+            <ShieldCheck size={16} />
+          </span>
+          <span>
+            <strong>POLICY BLOCKED · {policyTestResult.studentId}</strong>
+            <small>
+              {formatCurrency(policyTestResult.amount)} exceeds cap{' '}
+              {formatCurrency(policyTestResult.cap)}
+            </small>
+            <code>{policyTestResult.reason}</code>
+          </span>
+        </div>
+      )}
+
       {error && <div className="inline-error">{error}</div>}
-      <button
-        className="button button-agent"
-        onClick={onTrigger}
-        disabled={isRunning}
-      >
-        {isRunning ? (
-          <>
-            <LoaderCircle className="spin" size={17} />
-            Running cycle…
-          </>
-        ) : (
-          <>
-            <Zap size={16} />
-            Agent Trigger
-            <ArrowRight size={16} />
-          </>
-        )}
-      </button>
+      {isKillSwitchActive && (
+        <div className="kill-switch-banner">
+          <CircleAlert size={14} />
+          Kill-switch engaged — agent execution is disabled.
+        </div>
+      )}
+      <div className="agent-actions">
+        <button
+          className="button button-agent"
+          onClick={onTrigger}
+          disabled={isRunning || isKillSwitchActive}
+        >
+          {isRunning ? (
+            <>
+              <LoaderCircle className="spin" size={17} />
+              Running…
+            </>
+          ) : isKillSwitchActive ? (
+            <>
+              <Power size={15} />
+              Agent Halted
+            </>
+          ) : (
+            <>
+              <Zap size={16} />
+              Agent Trigger
+              <ArrowRight size={16} />
+            </>
+          )}
+        </button>
+        <button
+          className="button button-test-policy"
+          onClick={onTestPolicyBlock}
+          disabled={isRunning}
+        >
+          <ShieldCheck size={15} />
+          Test Policy Block
+        </button>
+      </div>
       <div className="agent-footnote">
         <ShieldCheck size={14} />
-        Payments pass policy checks before settlement
+        Policy test is a simulation; it never submits a payment
       </div>
     </section>
   )
@@ -492,7 +675,8 @@ function AuditPanel({ auditLogs, currency }) {
                       className="audit-hash"
                       href={`https://testnet.xrpl.org/transactions/${entry.txHash}`}
                       target="_blank"
-                      rel="noreferrer"
+                      rel="noopener noreferrer"
+                      aria-label={`Open XRPL transaction ${entry.txHash} in a new tab`}
                       title={entry.txHash}
                     >
                       {compactHash(entry.txHash)}
@@ -533,10 +717,18 @@ function AdminDashboard({
   isTriggering,
   triggerResult,
   triggerError,
+  policyTestResult,
+  capOverrides,
+  onCapChange,
+  killSwitchActive,
+  onToggleKillSwitch,
+  isTogglingKillSwitch,
+  killSwitchError,
   dashboardError,
   lastUpdated,
   onRefresh,
   onTrigger,
+  onTestPolicyBlock,
 }) {
   const programme = programmes[0]
   const pendingCount = schedules.filter((item) =>
@@ -614,14 +806,28 @@ function AdminDashboard({
       </div>
 
       <div className="overview-grid">
-        <ProgrammeCard programme={programme} />
+        <ProgrammeCard programme={programme} isPaused={killSwitchActive} />
         <AgentCard
           isRunning={isTriggering}
           triggerResult={triggerResult}
           onTrigger={onTrigger}
+          onTestPolicyBlock={onTestPolicyBlock}
+          policyTestResult={policyTestResult}
+          isKillSwitchActive={killSwitchActive}
           error={triggerError}
         />
       </div>
+
+      <PolicyControls
+        beneficiaries={beneficiaries}
+        capOverrides={capOverrides}
+        onCapChange={onCapChange}
+        currency={currency}
+        killSwitchActive={killSwitchActive}
+        onToggleKillSwitch={onToggleKillSwitch}
+        isTogglingKillSwitch={isTogglingKillSwitch}
+        killSwitchError={killSwitchError}
+      />
 
       <div className="operations-grid">
         <ScheduleTable
@@ -889,6 +1095,11 @@ function App() {
   const [triggerLogs, setTriggerLogs] = useState([])
   const [triggerResult, setTriggerResult] = useState(null)
   const [triggerError, setTriggerError] = useState('')
+  const [policyTestResult, setPolicyTestResult] = useState(null)
+  const [capOverrides, setCapOverrides] = useState({})
+  const [killSwitchOverride, setKillSwitchOverride] = useState(null)
+  const [isTogglingKillSwitch, setIsTogglingKillSwitch] = useState(false)
+  const [killSwitchError, setKillSwitchError] = useState('')
   const [dashboardError, setDashboardError] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
@@ -953,7 +1164,88 @@ function App() {
     )
   }, [auditLogs, triggerLogs])
 
+  const killSwitchActive =
+    killSwitchOverride ?? Boolean(programmes[0]?.isPaused)
+
+  function handleCapChange(studentId, value) {
+    setCapOverrides((current) => ({ ...current, [studentId]: value }))
+  }
+
+  async function handleToggleKillSwitch() {
+    const programme = programmes[0]
+    if (!programme?._id) {
+      setKillSwitchError('No programme is available to pause.')
+      return
+    }
+
+    setIsTogglingKillSwitch(true)
+    setKillSwitchError('')
+    try {
+      const result = await toggleProgrammePause(
+        programme._id,
+        programme.programmeId,
+        killSwitchActive,
+      )
+      setKillSwitchOverride(Boolean(result.isPaused))
+    } catch (error) {
+      setKillSwitchError(error.message)
+    } finally {
+      setIsTogglingKillSwitch(false)
+    }
+  }
+
+  function handleTestPolicyBlock() {
+    const overLimitSchedule = schedules.find((schedule) => {
+      const student = beneficiaries.find(
+        (beneficiary) => beneficiary.studentId === schedule.studentId,
+      )
+      return student
+        ? Number(schedule.amount) > getStudentCap(student, capOverrides)
+        : false
+    })
+    const schedule = overLimitSchedule || schedules[0]
+    const student =
+      beneficiaries.find(
+        (beneficiary) => beneficiary.studentId === schedule?.studentId,
+      ) || beneficiaries[0]
+
+    if (!student) {
+      setTriggerError('A beneficiary is required to run the policy demo.')
+      return
+    }
+
+    const cap = getStudentCap(student, capOverrides)
+    const attemptedAmount = overLimitSchedule
+      ? Number(schedule.amount)
+      : cap + Math.max(1, Math.ceil(cap * 0.1))
+    const eventId = `policy-test-${Date.now()}`
+    const event = {
+      _id: eventId,
+      timestamp: new Date().toISOString(),
+      eventType: 'POLICY_TEST_BLOCK',
+      studentId: student.studentId,
+      programmeId:
+        programmes[0]?.programmeId || student.programmeId || 'DEMO-PROGRAMME',
+      amount: attemptedAmount,
+      policyDecision: 'REJECTED',
+      rejectionReason: 'ERR_EXCEEDS_STUDENT_ALLOWANCE_CAP',
+      txHash: null,
+      ledgerResult: null,
+    }
+
+    setTriggerError('')
+    setPolicyTestResult({
+      studentId: student.studentId,
+      scheduleId: schedule?.scheduleId || 'DEMO-OVER-LIMIT',
+      amount: attemptedAmount,
+      cap,
+      reason: event.rejectionReason,
+    })
+    setTriggerLogs((current) => [event, ...current])
+  }
+
   async function handleAgentTrigger() {
+    if (killSwitchActive) return
     setIsTriggering(true)
     setTriggerError('')
     try {
@@ -1042,10 +1334,18 @@ function App() {
             isTriggering={isTriggering}
             triggerResult={triggerResult}
             triggerError={triggerError}
+            policyTestResult={policyTestResult}
+            capOverrides={capOverrides}
+            onCapChange={handleCapChange}
+            killSwitchActive={killSwitchActive}
+            onToggleKillSwitch={handleToggleKillSwitch}
+            isTogglingKillSwitch={isTogglingKillSwitch}
+            killSwitchError={killSwitchError}
             dashboardError={dashboardError}
             lastUpdated={lastUpdated}
             onRefresh={() => refreshDashboard(true)}
             onTrigger={handleAgentTrigger}
+            onTestPolicyBlock={handleTestPolicyBlock}
           />
         ) : (
           <StudentPortal
