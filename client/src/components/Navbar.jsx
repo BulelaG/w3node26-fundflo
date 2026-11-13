@@ -41,8 +41,8 @@ export default function Navbar({
         {/* Brand */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
           <div style={{
-            width: '40px',
-            height: '40px',
+            width: '60px',
+            height: '60px',
             borderRadius: '12px',
             background: '#059669',
             display: 'flex',

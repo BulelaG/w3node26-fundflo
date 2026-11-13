@@ -69,8 +69,8 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Start Server locally
-if (require.main === module) {
+// Only start local HTTP listener if running outside Vercel serverless
+if (!process.env.VERCEL && process.env.NODE_ENV !== 'production' && require.main === module) {
   app.listen(PORT, () => {
     console.log(`====================================================`);
     console.log(` FundFlow Engine Active on http://localhost:${PORT}`);
@@ -80,3 +80,4 @@ if (require.main === module) {
 }
 
 module.exports = app;
+module.exports.default = app;
