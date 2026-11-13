@@ -184,6 +184,15 @@ export default function AuthScreen({ onLogin }) {
 
       <div className="auth-right">
         <div className="auth-card">
+          <div className="auth-mobile-brand">
+            <span className="auth-mobile-brand-mark">
+              <img src="/fundflow-logo.png" alt="FundFlow Logo" className="brand-logo-img" />
+            </span>
+            <div className="auth-mobile-brand-copy">
+              <strong>FundFlow</strong>
+              <span>Every approved rand. Accounted for.</span>
+            </div>
+          </div>
           <div className="auth-tabs">
             <button
               className={`auth-tab ${mode === 'login' ? 'active' : ''}`}

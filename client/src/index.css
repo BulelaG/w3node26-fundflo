@@ -1,20 +1,20 @@
 :root {
-  --canvas: #faf9f6;
-  --surface: #ffffff;
-  --surface-elevated: #f5f5f4;
-  --border: #e7e5e4;
+  --canvas: #0b0f17;
+  --surface: rgba(18, 24, 38, 0.85);
+  --surface-elevated: rgba(26, 36, 56, 0.92);
+  --border: rgba(255, 255, 255, 0.14);
   --border-focus: #059669;
   
-  --navy: #111315;
-  --sidebar-bg: #111315;
-  --sidebar-hover: #202426;
-  --sidebar-text: #d6d3d1;
+  --navy: #0b0f17;
+  --sidebar-bg: #0d131f;
+  --sidebar-hover: #162032;
+  --sidebar-text: #e2e8f0;
   --sidebar-text-active: #ffffff;
   
-  --ink: #111315;
-  --text-main: #111315;
-  --text-muted: #57534e;
-  --text-dim: #78716c;
+  --ink: #ffffff;
+  --text-main: #ffffff;
+  --text-muted: #cbd5e1;
+  --text-dim: #94a3b8;
 
   --accent-cyan: #059669;
   --accent-teal: #059669;
@@ -64,8 +64,8 @@ body {
   min-width: 320px;
   min-height: 100vh;
   margin: 0;
-  background: var(--canvas);
-  color: var(--text-main);
+  background: #0b0f17;
+  color: #ffffff;
   font-family: var(--font-family);
   line-height: 1.5;
   -webkit-font-smoothing: antialiased;
@@ -74,7 +74,7 @@ body {
 
 h1, h2, h3, .font-display {
   font-family: var(--font-display);
-  color: var(--navy);
+  color: #ffffff;
   letter-spacing: -0.01em;
 }
 

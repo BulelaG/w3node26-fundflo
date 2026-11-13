@@ -362,17 +362,184 @@ input:focus {
 }
 
 .topbar-brand-mark {
-  width: 38px !important;
-  height: 38px !important;
+  width: 54px !important;
+  height: 54px !important;
 }
 
 .bursary-brand-mark {
-  width: 36px !important;
-  height: 36px !important;
+  width: 50px !important;
+  height: 50px !important;
 }
 
 .auth-brand-mark {
-  width: 44px !important;
-  height: 44px !important;
+  width: 76px !important;
+  height: 76px !important;
 }
 
+
+
+/* ============================================================
+   UNIVERSAL CALM DARK THEME & HIGH CONTRAST ENFORCEMENT
+   ============================================================ */
+:root {
+  --canvas: #0b0f17 !important;
+  --surface: rgba(18, 24, 38, 0.88) !important;
+  --surface-elevated: rgba(26, 36, 56, 0.94) !important;
+  --text-main: #ffffff !important;
+  --text-muted: #cbd5e1 !important;
+  --text-dim: #94a3b8 !important;
+}
+
+html, body, #root {
+  background: #0b0f17 !important;
+  color: #ffffff !important;
+}
+
+/* Ensure no container or card has a light background */
+.app-shell,
+.app-main,
+.page-container,
+.tab-content,
+.view-content,
+.portal-main,
+.auditor-main,
+.admin-main,
+.analytics-main {
+  background: #0b0f17 !important;
+  color: #ffffff !important;
+}
+
+/* All panel and card headers/text */
+.panel h1, .panel h2, .panel h3, .panel h4,
+.card h1, .card h2, .card h3, .card h4,
+.page-header h1, .page-header h2,
+strong, b {
+  color: #ffffff !important;
+}
+
+p, span, label, div {
+  /* Prevent dark text on dark background */
+}
+
+.metric-label,
+.panel-heading p,
+.page-header p,
+.table-subtext,
+.audit-detail-summary {
+  color: #cbd5e1 !important;
+}
+
+/* Topbar Brand typography boost */
+.topbar {
+  min-height: 72px !important;
+  padding-top: 10px !important;
+  padding-bottom: 10px !important;
+}
+
+.topbar-brand-copy strong {
+  font-size: 20px !important;
+  letter-spacing: -0.4px !important;
+  color: #ffffff !important;
+}
+
+.topbar-brand-copy span {
+  font-size: 10px !important;
+  color: #59dfc0 !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.6px !important;
+}
+
+/* Force dark on any remaining white background elements */
+.quick-action-button,
+.kpi-card,
+.stat-card,
+.card,
+.modal,
+.drawer {
+  background: rgba(18, 24, 38, 0.92) !important;
+  border: 1px solid rgba(255, 255, 255, 0.14) !important;
+  color: #ffffff !important;
+}
+
+/* Data Table readable text */
+table tr th {
+  background: rgba(255, 255, 255, 0.05) !important;
+  color: #e2e8f0 !important;
+}
+
+table tr td {
+  color: #e2e8f0 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+table tr td strong {
+  color: #ffffff !important;
+}
+
+table tr td small,
+table tr td span:not(.badge):not(.status-badge) {
+  color: #cbd5e1 !important;
+}
+
+/* Bursary Card high-contrast readability */
+.bursary-card strong {
+  color: #ffffff !important;
+}
+
+.bursary-card-owner small,
+.bursary-card-wallet small,
+.bursary-balance-label {
+  color: #59dfc0 !important;
+  font-weight: 700 !important;
+  letter-spacing: 0.8px !important;
+}
+
+.bursary-card-owner strong {
+  color: #ffffff !important;
+  font-size: 18px !important;
+}
+
+.bursary-card-owner span {
+  color: #cbd5e1 !important;
+}
+
+.bursary-card-wallet strong {
+  color: #ffffff !important;
+}
+
+.bursary-rate-note {
+  color: #94a3b8 !important;
+}
+
+/* Audit Logs and timeline */
+.disbursement-timeline-item {
+  color: #e2e8f0 !important;
+}
+
+.timeline-entry-main strong {
+  color: #ffffff !important;
+}
+
+.timeline-entry-main span {
+  color: #cbd5e1 !important;
+}
+
+.timeline-amount strong {
+  color: #59dfc0 !important;
+}
+
+.timeline-amount span {
+  color: #cbd5e1 !important;
+}
+
+/* All inputs and controls */
+input, select, textarea {
+  background: rgba(11, 15, 23, 0.95) !important;
+  color: #ffffff !important;
+  border: 1px solid rgba(255, 255, 255, 0.18) !important;
+}
+
+input:focus, select:focus, textarea:focus {
+  border-color: #059669 !important;
+  outline: none !important;
+}
