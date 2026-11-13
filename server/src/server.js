@@ -13,26 +13,23 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
-// Mount API Routes
-app.use('/api', mandateRoutes);
-app.use('/api', paymentRoutes);
-app.use('/api', auditRoutes);
-app.use('/api', agentRoutes);
-
-// Health Check Endpoint
-app.get('/api/health', (req, res) => {
+// Health Check Endpoint (handles both /api/health and /health)
+const handleHealth = (req, res) => {
   res.status(200).json({
     status: 'ONLINE',
     service: 'FundFlow Backend Engine',
-    environment: process.env.NODE_ENV || 'development',
+    environment: process.env.NODE_ENV || 'production',
     timestamp: new Date().toISOString()
   });
-});
+};
+app.get('/api/health', handleHealth);
+app.get('/health', handleHealth);
 
-// Root API Overview
-app.get('/api', (req, res) => {
+// Root API Overview (handles both /api and /)
+const handleRoot = (req, res) => {
   res.json({
     name: 'FundFlow API',
+    status: 'ONLINE',
     tagline: 'Every approved rand. Accounted for.',
     hackathonTrack: 'Agentic Finance (W3Node 2026 - Sponsored by Ripple)',
     endpoints: [
@@ -46,9 +43,33 @@ app.get('/api', (req, res) => {
       '/api/students/:studentId/status'
     ]
   });
+};
+app.get('/api', handleRoot);
+app.get('/', handleRoot);
+
+// Mount API Routes under both /api and / so rewrites work seamlessly
+app.use('/api', mandateRoutes);
+app.use('/', mandateRoutes);
+
+app.use('/api', paymentRoutes);
+app.use('/', paymentRoutes);
+
+app.use('/api', auditRoutes);
+app.use('/', auditRoutes);
+
+app.use('/api', agentRoutes);
+app.use('/', agentRoutes);
+
+// Error Handling Middleware
+app.use((err, req, res, next) => {
+  console.error('[Server Error]', err);
+  res.status(500).json({
+    error: err.message || 'Internal Server Error',
+    code: err.code || 'ERR_SERVER_ERROR'
+  });
 });
 
-// Start Server
+// Start Server locally
 if (require.main === module) {
   app.listen(PORT, () => {
     console.log(`====================================================`);

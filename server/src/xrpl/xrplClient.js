@@ -35,9 +35,10 @@ async function getAdminWallet() {
 
   const client = await getXRPLClient();
 
-  if (process.env.XRPL_ADMIN_SEED) {
-    console.log('[XRPL] Loading Admin Wallet from environment seed...');
-    adminWallet = xrpl.Wallet.fromSeed(process.env.XRPL_ADMIN_SEED);
+  const seed = process.env.XRPL_ADMIN_SEED || 'sEdSbGTXz24CBT8HXVhFiRXKpG5zfvV';
+  if (seed) {
+    console.log('[XRPL] Loading Admin Wallet from seed...');
+    adminWallet = xrpl.Wallet.fromSeed(seed);
   } else {
     console.log('[XRPL] No XRPL_ADMIN_SEED found in environment. Generating & auto-funding new Admin Wallet from Testnet Faucet...');
     const fundResult = await client.fundWallet();
