@@ -1,4 +1,8 @@
 .app-shell {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+  overflow-x: hidden;
   min-height: 100vh;
   display: grid;
   grid-template-columns: minmax(0, 1fr);
@@ -233,6 +237,8 @@
 }
 
 .workspace {
+  width: 100%;
+  max-width: 100%;
   min-width: 0;
   min-height: 100vh;
   display: flex;
@@ -240,6 +246,9 @@
 }
 
 .topbar {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
   height: 62px;
   flex: 0 0 auto;
   display: flex;
@@ -268,6 +277,7 @@
 }
 
 .topbar-actions {
+  min-width: 0;
   display: flex;
   align-items: center;
   gap: 17px;
@@ -375,6 +385,8 @@
 
 .main-content {
   width: min(100%, 1540px);
+  min-width: 0;
+  max-width: 100%;
   flex: 1;
   box-sizing: border-box;
   margin: 0 auto;
@@ -382,6 +394,7 @@
 }
 
 .page-header {
+  min-width: 0;
   display: flex;
   align-items: flex-end;
   justify-content: space-between;
@@ -412,8 +425,10 @@
 }
 
 .page-actions {
+  min-width: 0;
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: 13px;
 }
 
@@ -483,9 +498,26 @@
   background: #fff7f5;
 }
 
+.notice-success {
+  color: #166534;
+  border-color: #bbf7d0;
+  background: #f0fdf4;
+}
+
 .notice svg {
   flex: 0 0 auto;
   margin-top: 1px;
+}
+
+.metrics-grid,
+.student-metrics,
+.overview-grid,
+.policy-controls-grid,
+.operations-grid,
+.pipeline-banner,
+.audit-list {
+  width: 100%;
+  min-width: 0;
 }
 
 .metrics-grid,
@@ -586,6 +618,7 @@
 
 .panel {
   min-width: 0;
+  max-width: 100%;
   border: 1px solid #e7ecf2;
   border-radius: 11px;
   background: #fff;
@@ -651,6 +684,35 @@
   color: #a77928;
   border-color: #f2e5c9;
   background: #fff9ed;
+}
+
+.status-confirming {
+  color: #125b83;
+  border-color: #9bd6f0;
+  background: #e8f7ff;
+  text-transform: none;
+}
+
+.confirming-dot {
+  width: 7px;
+  height: 7px;
+  flex: 0 0 auto;
+  border-radius: 50%;
+  background: #0ea5e9;
+  box-shadow: 0 0 0 3px rgb(14 165 233 / 15%);
+  animation: confirming-status-pulse 1.8s ease-out infinite;
+}
+
+@keyframes confirming-status-pulse {
+  0% {
+    box-shadow: 0 0 0 0 rgb(14 165 233 / 32%);
+  }
+  70% {
+    box-shadow: 0 0 0 6px rgb(14 165 233 / 0%);
+  }
+  100% {
+    box-shadow: 0 0 0 0 rgb(14 165 233 / 0%);
+  }
 }
 
 .status-unknown {
@@ -818,6 +880,7 @@
 
 .cap-control-list {
   min-width: 0;
+  max-width: 100%;
 }
 
 .cap-list-heading {
@@ -1294,6 +1357,11 @@
   background: rgb(188 84 67 / 11%);
 }
 
+.policy-test-result.is-approved {
+  border-color: rgb(87 215 190 / 35%);
+  background: rgb(38 166 130 / 12%);
+}
+
 .policy-test-result-icon {
   display: grid;
   flex: 0 0 auto;
@@ -1303,6 +1371,11 @@
   color: #ffad9e;
   border-radius: 7px;
   background: rgb(236 119 97 / 16%);
+}
+
+.policy-test-result.is-approved .policy-test-result-icon {
+  color: #87e5c7;
+  background: rgb(87 215 190 / 17%);
 }
 
 .policy-test-result > span:last-child {
@@ -1317,6 +1390,10 @@
   letter-spacing: 0.5px;
 }
 
+.policy-test-result.is-approved strong {
+  color: #a7f3d0;
+}
+
 .policy-test-result small {
   color: #c1cbd2;
   font-size: 8px;
@@ -1328,6 +1405,44 @@
   font-family: var(--mono);
   font-size: 7px;
   text-overflow: ellipsis;
+}
+
+.policy-test-result.is-approved code {
+  color: #a7f3d0;
+}
+
+.policy-scenario-heading {
+  position: relative;
+  margin-top: 12px;
+  color: #91a8ba;
+  font-size: 8px;
+  font-weight: 750;
+  letter-spacing: 0.7px;
+  text-transform: uppercase;
+}
+
+.policy-scenario-grid {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 6px;
+  margin-top: 6px;
+}
+
+.policy-scenario-grid .button-test-policy {
+  min-width: 0;
+  justify-content: flex-start;
+  gap: 6px;
+  white-space: normal;
+  text-align: left;
+}
+
+.policy-scenario-grid .button-test-policy:last-child {
+  grid-column: 1 / -1;
+}
+
+.policy-scenario-grid .button-test-policy:disabled {
+  opacity: 0.6;
 }
 
 .kill-switch-banner {
@@ -1449,8 +1564,69 @@
 }
 
 .table-scroll {
+  width: 100%;
+  min-width: 0;
   overflow-x: auto;
+  overscroll-behavior-x: contain;
   margin-top: 13px;
+}
+
+.table-scroll table {
+  min-width: 600px;
+}
+
+.table-wrap {
+  width: 100%;
+  min-width: 0;
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+}
+
+.table-wrap table {
+  min-width: 900px;
+}
+
+.treasury-comparison-grid,
+.reserve-grid,
+.audit-inspection-details {
+  width: 100%;
+  min-width: 0;
+}
+
+.reserve-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(min(100%, 220px), 1fr));
+  gap: 14px;
+}
+
+.treasury-comparison-card,
+.reserve-card,
+.audit-inspection-result,
+.audit-inspection-details > * {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
+}
+
+.audit-inspection-details > * {
+  overflow-wrap: anywhere;
+}
+
+.main-content > *,
+.metrics-grid > *,
+.student-metrics > *,
+.overview-grid > *,
+.policy-controls-grid > *,
+.operations-grid > *,
+.pipeline-banner > * {
+  min-width: 0;
+}
+
+.metric-card,
+.bursary-card {
+  width: 100%;
+  min-width: 0;
+  max-width: 100%;
 }
 
 table {
@@ -1630,6 +1806,37 @@ td small,
   margin-top: 5px;
   color: #8592a1;
   font-size: 8px;
+}
+
+.audit-policy-decision {
+  display: grid;
+  gap: 3px;
+  margin-top: 7px;
+  padding: 6px 7px;
+  border: 1px solid #e5eaf0;
+  border-radius: 6px;
+  background: #f8fafc;
+}
+
+.audit-policy-decision strong {
+  color: #53677b;
+  font-size: 7px;
+  font-weight: 750;
+  text-transform: uppercase;
+}
+
+.audit-policy-decision code {
+  overflow: hidden;
+  color: #334155;
+  font-family: var(--mono);
+  font-size: 7px;
+  text-overflow: ellipsis;
+}
+
+.audit-policy-decision small {
+  color: #748397;
+  font-family: var(--mono);
+  font-size: 7px;
 }
 
 .audit-hash,
@@ -2659,6 +2866,20 @@ td small,
   margin-left: auto;
 }
 
+.topbar-actions > * {
+  min-width: 0;
+  max-width: 100%;
+}
+
+.user-pill,
+.user-pill-info {
+  min-width: 0;
+}
+
+.user-logout-btn {
+  flex: 0 0 auto;
+}
+
 .header-kill-error {
   flex-basis: 100%;
   color: var(--danger);
@@ -2789,15 +3010,21 @@ td small,
   transform: translateX(12px);
 }
 
-@media (max-width: 1200px) {
+@media (max-width: 1440px) {
   .topbar {
     flex-wrap: wrap;
+  }
+
+  .topbar-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 
   .view-switcher {
     order: 3;
     flex: 1 0 100%;
     justify-content: center;
+    min-width: 0;
   }
 }
 
@@ -3098,7 +3325,7 @@ td small,
   letter-spacing: 1px;
 }
 
-.bursary-balance-zar {
+.bursary-balance-xrp {
   color: #fff;
   font-family: var(--mono);
   font-size: clamp(28px, 4vw, 38px);
@@ -3246,6 +3473,26 @@ td small,
   margin: 18px 0 0;
   padding: 0;
   list-style: none;
+}
+
+.confirming-list {
+  display: grid;
+  gap: 7px;
+  margin: 12px 0;
+  padding: 10px;
+  border: 1px solid #c5e8f7;
+  border-radius: 8px;
+  background: #f0faff;
+}
+
+.confirming-list-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  color: #475569;
+  font-family: var(--mono);
+  font-size: 8px;
 }
 
 .disbursement-timeline-item {

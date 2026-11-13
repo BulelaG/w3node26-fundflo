@@ -109,8 +109,8 @@ export default function AuditorPortal({ auditLogs = [] }) {
           </span>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
-          <div style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #a7f3d0' }}>
+        <div className="reserve-grid">
+          <div className="reserve-card" style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #a7f3d0' }}>
             <div style={{ fontSize: '0.72rem', color: '#047857', fontWeight: '700', textTransform: 'uppercase' }}>
               Treasury Vault Address
             </div>
@@ -119,7 +119,7 @@ export default function AuditorPortal({ auditLogs = [] }) {
             </div>
           </div>
 
-          <div style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #a7f3d0' }}>
+          <div className="reserve-card" style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #a7f3d0' }}>
             <div style={{ fontSize: '0.72rem', color: '#047857', fontWeight: '700', textTransform: 'uppercase' }}>
               Live Validated Reserve
             </div>
@@ -129,7 +129,7 @@ export default function AuditorPortal({ auditLogs = [] }) {
             <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>Native Testnet XRP</div>
           </div>
 
-          <div style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #a7f3d0' }}>
+          <div className="reserve-card" style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #a7f3d0' }}>
             <div style={{ fontSize: '0.72rem', color: '#047857', fontWeight: '700', textTransform: 'uppercase' }}>
               Ledger Account Sequence
             </div>
@@ -177,7 +177,7 @@ export default function AuditorPortal({ auditLogs = [] }) {
         </form>
 
         {inspectionResult && (
-          <div style={{
+          <div className="audit-inspection-result" style={{
             marginTop: '18px',
             padding: '18px',
             borderRadius: '10px',
@@ -200,7 +200,7 @@ export default function AuditorPortal({ auditLogs = [] }) {
             </p>
 
             {inspectionResult.log && (
-              <div style={{ fontSize: '0.82rem', color: 'var(--muted)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
+              <div className="audit-inspection-details" style={{ fontSize: '0.82rem', color: 'var(--muted)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 180px), 1fr))', gap: '10px', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
                 <div><strong>Student ID:</strong> {inspectionResult.log.studentId}</div>
                 <div><strong>Mandate:</strong> {inspectionResult.log.programmeId}</div>
                 <div><strong>Amount:</strong> {inspectionResult.log.amount} XRP</div>
@@ -253,6 +253,14 @@ export default function AuditorPortal({ auditLogs = [] }) {
                       <span className={`status-badge ${isApproved ? 'status-verified' : 'status-rejected'}`}>
                         {log.policyDecision}
                       </span>
+                      <div className="audit-policy-decision">
+                        <strong>FundFlow Policy Decision</strong>
+                        <code>{log.decisionId || 'Decision ID unavailable'}</code>
+                        <small>
+                          Policy {log.policyVersion || 'unversioned'} · Reason{' '}
+                          {log.reasonCode || log.rejectionReason || 'NONE'}
+                        </small>
+                      </div>
                     </td>
                     <td>
                       {log.ledgerResult ? (
@@ -268,7 +276,7 @@ export default function AuditorPortal({ auditLogs = [] }) {
                     <td>
                       {log.txHash ? (
                         <a
-                          href={log.explorerUrl || `https://testnet.xrpl.org/transactions/${log.txHash}`}
+                          href={`https://testnet.xrpl.org/transactions/${log.txHash}`}
                           target="_blank"
                           rel="noreferrer"
                           style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}

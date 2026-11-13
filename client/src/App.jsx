@@ -21,6 +21,7 @@ import {
   LoaderCircle,
   Power,
   RefreshCw,
+  RotateCcw,
   ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
@@ -39,9 +40,15 @@ import {
   getProgrammes,
   getSchedules,
   getStudentStatus,
+  createBeneficiary,
+  createProgramme,
+  resetDemo,
   subscribeToApiMode,
   triggerAgent,
   toggleProgrammePause,
+  updateBeneficiary,
+  validateAndPay,
+  XRP_TO_ZAR_DEMO_RATE,
 } from './services/api.js'
 import AnalyticsDashboard from './pages/AnalyticsDashboard.jsx'
 import AuditorPortal from './pages/AuditorPortal.jsx'
@@ -51,6 +58,14 @@ import './auth.css'
 
 const REFRESH_INTERVAL = 30000
 const ZAR_PER_RLUSD = 18
+const DEMO_WALLET_ADDRESS = 'rUfjbcCNpfGduuSGs532cqDqh4wRGauunK'
+const DEMO_PROGRAMME_NAME = 'FundFlow Live Policy Demo'
+const DEMO_STUDENT_ID = 'STU-DEMO-POLICY'
+const DEMO_BUDGET_PROGRAMME_NAME = 'FundFlow Budget Policy Demo'
+const DEMO_BUDGET_STUDENT_ID = 'STU-DEMO-BUDGET'
+const DEMO_DUPLICATE_STUDENT_ID = 'STU-DEMO-DUPLICATE'
+const DEMO_CAP_STUDENT_ID = 'STU-DEMO-CAP'
+const DEMO_PAUSED_STUDENT_ID = 'STU-DEMO-PAUSED'
 
 function fetchDashboardData() {
   return Promise.allSettled([
@@ -79,6 +94,15 @@ function formatCurrency(value, currency = 'XRP', maximumFractionDigits = 0) {
   }).format(amount)
 }
 
+function formatXrpAmount(value, maximumFractionDigits = 0) {
+  const amount = Number(value) || 0
+  return `${formatCurrency(amount, 'XRP', maximumFractionDigits)} ≈ ${formatCurrency(
+    amount * XRP_TO_ZAR_DEMO_RATE,
+    'ZAR',
+    2,
+  )}`
+}
+
 function formatProgrammeVault(programmes) {
   const totalsByCurrency = new Map()
   for (const programme of programmes) {
@@ -90,7 +114,11 @@ function formatProgrammeVault(programmes) {
   }
 
   return [...totalsByCurrency]
-    .map(([currency, total]) => formatCurrency(total, currency))
+    .map(([currency, total]) =>
+      currency === 'XRP'
+        ? formatXrpAmount(total)
+        : formatCurrency(total, currency),
+    )
     .join(' / ')
 }
 
@@ -112,17 +140,6 @@ function truncateWallet(address) {
   return `${address.slice(0, 9)}...${address.slice(-6)}`
 }
 
-function getStudentCap(student, overrides) {
-  const override = overrides[student.studentId]
-  if (override === undefined || override === '') {
-    return Number(student.monthlyAllowance) || 0
-  }
-  const parsed = Number(override)
-  return Number.isFinite(parsed) && parsed >= 0
-    ? parsed
-    : Number(student.monthlyAllowance) || 0
-}
-
 function isWalletApproved(student, overrides) {
   const override = overrides[student.studentId]
   if (typeof override === 'boolean') return override
@@ -134,6 +151,17 @@ function StatusBadge({ status }) {
     .toLowerCase()
     .replaceAll('_', '-')
     .replaceAll(' ', '-')
+  if (
+    ['submitted', 'outcome-pending', 'processing'].includes(normalized)
+  ) {
+    return (
+      <span className="status-badge status-confirming" role="status">
+        <span className="confirming-dot" />
+        Confirming on XRPL Ledger
+      </span>
+    )
+  }
+
   const label = (status || 'Unknown').replaceAll('_', ' ')
   const icon =
     normalized.includes('reject') ||
@@ -291,13 +319,17 @@ function ProgrammeCard({ programme, isPaused }) {
         <div>
           <span>Remaining budget</span>
           <strong className="financial-value">
-            {formatCurrency(programme.remainingBudget, programme.currency)}
+            {programme.currency === 'XRP'
+              ? formatXrpAmount(programme.remainingBudget)
+              : formatCurrency(programme.remainingBudget, programme.currency)}
           </strong>
         </div>
         <div className="budget-total">
           <span>Total mandate</span>
           <strong className="financial-value">
-            {formatCurrency(programme.totalBudget, programme.currency)}
+            {programme.currency === 'XRP'
+              ? formatXrpAmount(programme.totalBudget)
+              : formatCurrency(programme.totalBudget, programme.currency)}
           </strong>
         </div>
       </div>
@@ -460,11 +492,11 @@ function PolicyControls({
               {killSwitchActive ? 'ENGAGED' : 'STANDBY'}
             </span>
           </div>
-          <h3>Emergency Agent Kill-Switch</h3>
+          <h3>Pause New Authorisations</h3>
           <p>
             {killSwitchActive
-              ? 'Autonomous payment cycles are halted until the mandate is resumed.'
-              : 'Pause the mandate to prevent the agent from starting new payment cycles.'}
+              ? 'New payment signing is stopped until the mandate is resumed.'
+              : 'Stop new payment authorisations and signing for this mandate.'}
           </p>
           <div className="kill-switch-action">
             <span>{killSwitchActive ? 'Agent execution halted' : 'Agent execution allowed'}</span>
@@ -473,7 +505,7 @@ function PolicyControls({
               type="button"
               role="switch"
               aria-checked={killSwitchActive}
-              aria-label="Toggle emergency Agent Kill-Switch"
+              aria-label="Pause New Authorisations"
               onClick={onToggleKillSwitch}
               disabled={isTogglingKillSwitch}
             >
@@ -484,8 +516,8 @@ function PolicyControls({
             <div className="kill-switch-error">{killSwitchError}</div>
           )}
           <div className="kill-switch-footnote">
-            Toggle is backed by the programme pause endpoint. Settled ledger
-            transactions cannot be reversed.
+            Stops new signing only. Transactions already settled on XRPL cannot
+            be reversed.
           </div>
         </aside>
       </div>
@@ -497,7 +529,7 @@ function AgentCard({
   isRunning,
   triggerResult,
   onTrigger,
-  onTestPolicyBlock,
+  onRunPolicyScenario,
   policyTestResult,
   isKillSwitchActive,
   error,
@@ -562,21 +594,35 @@ function AgentCard({
 
       {policyTestResult && (
         <div
-          className="policy-test-result"
-          role="alert"
-          aria-live="assertive"
+          className={`policy-test-result ${policyTestResult.approved ? 'is-approved' : ''}`}
+          role="status"
+          aria-live="polite"
         >
           <span className="policy-test-result-icon">
             <ShieldCheck size={16} />
           </span>
           <span>
-            <strong>INDEPENDENT POLICY ENGINE · REJECTED</strong>
-            <small className="financial-value">
-              Mock request {policyTestResult.scheduleId} for{' '}
-              {policyTestResult.studentId}: {formatCurrency(policyTestResult.amount)}{' '}
-              exceeds the {formatCurrency(policyTestResult.cap)} student cap.
-            </small>
-            <code>Audit reason: {policyTestResult.reason}</code>
+            <strong>
+              FUNDFLOW POLICY DECISION ·{' '}
+              {policyTestResult.approved ? 'APPROVED' : 'REJECTED'}
+            </strong>
+            <small>{policyTestResult.message}</small>
+            <code>
+              {policyTestResult.decisionId || 'Decision ID unavailable'} ·{' '}
+              {policyTestResult.policyVersion || 'Policy version unavailable'} ·{' '}
+              {policyTestResult.reasonCode || 'No rejection reason'}
+            </code>
+            {policyTestResult.txHash && (
+              <a
+                className="audit-hash"
+                href={`https://testnet.xrpl.org/transactions/${policyTestResult.txHash}`}
+                target="_blank"
+                rel="noopener noreferrer"
+              >
+                {compactHash(policyTestResult.txHash)}
+                <ExternalLink size={12} />
+              </a>
+            )}
           </span>
         </div>
       )}
@@ -614,16 +660,38 @@ function AgentCard({
         </button>
         <button
           className="button button-test-policy"
-          onClick={onTestPolicyBlock}
+          onClick={() => onRunPolicyScenario('valid-payment')}
           disabled={isRunning}
         >
-          <ShieldCheck size={15} />
-          Simulate Policy Violation
+          <Check size={15} />
+          Valid Run
         </button>
+      </div>
+      <div className="policy-scenario-heading">
+        Live policy-engine tests
+      </div>
+      <div className="policy-scenario-grid">
+        {[
+          ['duplicate', 'Duplicate Allowance'],
+          ['student-limit', 'Student Limit Exceeded'],
+          ['budget', 'Budget Exceeded'],
+          ['unapproved-recipient', 'Unapproved Recipient'],
+          ['paused-programme', 'Paused Programme'],
+        ].map(([scenario, label]) => (
+          <button
+            className="button button-test-policy"
+            key={scenario}
+            onClick={() => onRunPolicyScenario(scenario)}
+            disabled={isRunning}
+          >
+            <ShieldCheck size={14} />
+            {label}
+          </button>
+        ))}
       </div>
       <div className="agent-footnote">
         <ShieldCheck size={14} />
-        Simulation only — no payment is submitted
+        Valid payment submits 10 XRP on XRPL Testnet; other tests exercise live policy checks.
       </div>
     </section>
   )
@@ -706,7 +774,9 @@ function ScheduleTable({
                       <small className="table-subtext">{schedule.scheduleId}</small>
                     </td>
                     <td className="amount-cell">
-                      {formatCurrency(schedule.amount, currency)}
+                      {currency === 'XRP'
+                        ? formatXrpAmount(schedule.amount)
+                        : formatCurrency(schedule.amount, currency)}
                     </td>
                     <td>
                       <StatusBadge status={displayedStatus} />
@@ -788,8 +858,20 @@ function AuditPanel({ auditLogs, currency }) {
                       })}
                     </span>
                     <span className="audit-amount">
-                      {formatCurrency(entry.amount, currency)}
+                      {currency === 'XRP'
+                        ? formatXrpAmount(entry.amount)
+                        : formatCurrency(entry.amount, currency)}
                     </span>
+                  </div>
+                  <div className="audit-policy-decision">
+                    <strong>FundFlow Policy Decision</strong>
+                    <code>{entry.decisionId || 'Decision ID unavailable'}</code>
+                    <small>
+                      Policy {entry.policyVersion || 'unversioned'} · Reason{' '}
+                      {entry.reasonCode ||
+                        entry.rejectionReason ||
+                        'NONE'}
+                    </small>
                   </div>
                   {entry.txHash ? (
                     <a
@@ -848,10 +930,13 @@ function AdminDashboard({
   isTogglingKillSwitch,
   killSwitchError,
   dashboardError,
+  demoResetNotice,
   lastUpdated,
   onRefresh,
+  onResetDemo,
   onTrigger,
-  onTestPolicyBlock,
+  onRunPolicyScenario,
+  isResettingDemo,
 }) {
   const programme = programmes[0]
   const currency = programme?.currency || 'XRP'
@@ -880,14 +965,29 @@ function AdminDashboard({
             <button
               className="button button-secondary"
               onClick={onRefresh}
-              disabled={isRefreshing}
+              disabled={isRefreshing || isResettingDemo}
             >
               <RefreshCw className={isRefreshing ? 'spin' : ''} size={16} />
               Refresh
             </button>
+            <button
+              className="button button-secondary"
+              onClick={onResetDemo}
+              disabled={isResettingDemo || isTriggering}
+            >
+              <RotateCcw className={isResettingDemo ? 'spin' : ''} size={16} />
+              {isResettingDemo ? 'Resetting…' : 'Reset Demo'}
+            </button>
           </>
         }
       />
+
+      {demoResetNotice && (
+        <div className="notice notice-success" role="status">
+          <BadgeCheck size={17} />
+          <span>{demoResetNotice}</span>
+        </div>
+      )}
 
       {dashboardError && (
         <div className="notice notice-error" role="status">
@@ -942,7 +1042,7 @@ function AdminDashboard({
           isRunning={isTriggering}
           triggerResult={triggerResult}
           onTrigger={onTrigger}
-          onTestPolicyBlock={onTestPolicyBlock}
+          onRunPolicyScenario={onRunPolicyScenario}
           policyTestResult={policyTestResult}
           isKillSwitchActive={killSwitchActive}
           error={triggerError}
@@ -1048,6 +1148,16 @@ function StudentPortal({ beneficiaries, isLoadingBeneficiaries }) {
   const student = studentResult.studentId === studentId ? studentResult.data : null
   const error = studentResult.studentId === studentId ? studentResult.error : ''
   const disbursements = student?.disbursements || []
+  const confirmingDisbursements = disbursements.filter((item) =>
+    ['SUBMITTED', 'OUTCOME_PENDING', 'PROCESSING'].includes(
+      (item.status || '').toUpperCase(),
+    ),
+  )
+  const allowanceXRP =
+    Number(student?.monthlyAllowanceXRP ?? student?.monthlyAllowance) || 0
+  const allowanceZAR =
+    Number(student?.monthlyAllowanceZARIndicative) ||
+    allowanceXRP * XRP_TO_ZAR_DEMO_RATE
   const receivedDisbursements = disbursements
     .filter(
       (item) =>
@@ -1124,18 +1234,15 @@ function StudentPortal({ beneficiaries, isLoadingBeneficiaries }) {
 
             <div className="bursary-card-balance">
               <span className="bursary-balance-label">MONTHLY BURSARY ALLOWANCE</span>
-              <strong className="bursary-balance-zar">
-                {formatCurrency(student.monthlyAllowance, 'ZAR', 2)}
+              <strong className="bursary-balance-xrp">
+                {formatCurrency(allowanceXRP, 'XRP', 2)}
               </strong>
               <span className="bursary-balance-rlusd">
-                ≈ {formatCurrency(
-                  (Number(student.monthlyAllowance) || 0) / ZAR_PER_RLUSD,
-                  'RLUSD',
-                  2,
-                )}
+                ≈ {formatCurrency(allowanceZAR, 'ZAR', 2)} ·{' '}
+                {formatCurrency(allowanceZAR / ZAR_PER_RLUSD, 'RLUSD', 2)}
               </span>
               <small className="bursary-rate-note">
-                Indicative demo rate · 1 RLUSD = R18.00
+                Indicative demo conversion · 10 XRP = R1,650.00 · 1 RLUSD = R18.00
               </small>
             </div>
 
@@ -1199,6 +1306,19 @@ function StudentPortal({ beneficiaries, isLoadingBeneficiaries }) {
                 {receivedDisbursements.length === 1 ? 'payment' : 'payments'}
               </span>
             </div>
+            {confirmingDisbursements.length > 0 && (
+              <div className="confirming-list" role="status" aria-live="polite">
+                {confirmingDisbursements.map((disbursement) => (
+                  <div
+                    className="confirming-list-item"
+                    key={disbursement.scheduleId}
+                  >
+                    <span>{disbursement.scheduleId}</span>
+                    <StatusBadge status={disbursement.status} />
+                  </div>
+                ))}
+              </div>
+            )}
             {receivedDisbursements.length ? (
               <ol className="disbursement-timeline">
                 {receivedDisbursements.map((disbursement) => (
@@ -1218,10 +1338,28 @@ function StudentPortal({ beneficiaries, isLoadingBeneficiaries }) {
                           </span>
                         </div>
                         <div className="timeline-amount">
-                          <strong>{formatCurrency(disbursement.amount, 'ZAR', 2)}</strong>
+                          <strong>
+                            {formatCurrency(
+                              disbursement.amountXRP ?? disbursement.amount,
+                              'XRP',
+                              2,
+                            )}
+                          </strong>
                           <span>
-                            ≈ {formatCurrency(
-                              (Number(disbursement.amount) || 0) / ZAR_PER_RLUSD,
+                            ≈{' '}
+                            {formatCurrency(
+                              (Number(disbursement.amountXRP ?? disbursement.amount) ||
+                                0) * XRP_TO_ZAR_DEMO_RATE,
+                              'ZAR',
+                              2,
+                            )}{' '}
+                            ·{' '}
+                            {formatCurrency(
+                              ((Number(
+                                disbursement.amountXRP ?? disbursement.amount,
+                              ) || 0) *
+                                XRP_TO_ZAR_DEMO_RATE) /
+                                ZAR_PER_RLUSD,
                               'RLUSD',
                               2,
                             )}
@@ -1233,8 +1371,7 @@ function StudentPortal({ beneficiaries, isLoadingBeneficiaries }) {
                         <a
                           className="ledger-link"
                           href={
-                            disbursement.xrplExplorerUrl ||
-                            `https://testnet.xrpl.org/transactions/${disbursement.txHash}`
+                            `https://testnet.xrpl.org/transactions/${encodeURIComponent(disbursement.txHash)}`
                           }
                           target="_blank"
                           rel="noopener noreferrer"
@@ -1305,9 +1442,11 @@ function App() {
   const [isTogglingKillSwitch, setIsTogglingKillSwitch] = useState(false)
   const [killSwitchError, setKillSwitchError] = useState('')
   const [dashboardError, setDashboardError] = useState('')
+  const [demoResetNotice, setDemoResetNotice] = useState('')
   const [isLoading, setIsLoading] = useState(true)
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isTriggering, setIsTriggering] = useState(false)
+  const [isResettingDemo, setIsResettingDemo] = useState(false)
   const [lastUpdated, setLastUpdated] = useState(null)
   const apiMode = useSyncExternalStore(
     subscribeToApiMode,
@@ -1381,7 +1520,12 @@ function App() {
     const combined = [...triggerLogs, ...auditLogs]
     return combined.filter(
       (entry, index) =>
-        combined.findIndex((candidate) => candidate._id === entry._id) === index,
+        combined.findIndex(
+          (candidate) =>
+            candidate._id === entry._id ||
+            (entry.decisionId &&
+              candidate.decisionId === entry.decisionId),
+        ) === index,
     )
   }, [auditLogs, triggerLogs])
 
@@ -1428,54 +1572,296 @@ function App() {
     }
   }
 
-  function handleSimulatePolicyViolation() {
-    const overLimitSchedule = schedules.find((schedule) => {
-      const student = beneficiaries.find(
-        (beneficiary) => beneficiary.studentId === schedule.studentId,
-      )
-      return student
-        ? Number(schedule.amount) > getStudentCap(student, capOverrides)
-        : false
-    })
-    const schedule = overLimitSchedule || schedules[0]
-    const student =
-      beneficiaries.find(
-        (beneficiary) => beneficiary.studentId === schedule?.studentId,
-      ) || beneficiaries[0]
+  async function handleResetDemo() {
+    if (isTriggering || isResettingDemo) return
 
-    if (!student) {
-      setTriggerError('A beneficiary is required to run the policy demo.')
-      return
-    }
-
-    const cap = getStudentCap(student, capOverrides)
-    const attemptedAmount = overLimitSchedule
-      ? Number(schedule.amount)
-      : cap + Math.max(1, Math.ceil(cap * 0.1))
-    const eventId = `policy-test-${Date.now()}`
-    const event = {
-      _id: eventId,
-      timestamp: new Date().toISOString(),
-      eventType: 'POLICY_VIOLATION_SIMULATION',
-      studentId: student.studentId,
-      programmeId:
-        programmes[0]?.programmeId || student.programmeId || 'DEMO-PROGRAMME',
-      amount: attemptedAmount,
-      policyDecision: 'REJECTED',
-      rejectionReason: 'ERR_EXCEEDS_STUDENT_ALLOWANCE_CAP',
-      txHash: null,
-      ledgerResult: null,
-    }
-
+    setIsResettingDemo(true)
+    setDemoResetNotice('')
+    setDashboardError('')
     setTriggerError('')
-    setPolicyTestResult({
-      studentId: student.studentId,
-      scheduleId: schedule?.scheduleId || 'DEMO-OVER-LIMIT',
-      amount: attemptedAmount,
-      cap,
-      reason: event.rejectionReason,
+    setKillSwitchError('')
+    try {
+      const result = await resetDemo()
+      if (result.success === false) {
+        throw new Error(result.message || 'The demo reset was rejected.')
+      }
+
+      setTriggerLogs([])
+      setTriggerResult(null)
+      setPolicyTestResult(null)
+      setCapOverrides({})
+      setWhitelistOverrides({})
+      setKillSwitchOverride(null)
+      await refreshDashboard(false)
+      setDemoResetNotice(result.message || 'Demo data reset to its initial state.')
+    } catch (error) {
+      setDashboardError(`Unable to reset demo data: ${error.message}`)
+    } finally {
+      setIsResettingDemo(false)
+    }
+  }
+
+  async function ensurePolicyFixture({
+    budgetScenario = false,
+    studentId = budgetScenario ? DEMO_BUDGET_STUDENT_ID : DEMO_STUDENT_ID,
+  } = {}) {
+    const [currentProgrammes, currentBeneficiaries] = await Promise.all([
+      getProgrammes(),
+      getBeneficiaries(),
+    ])
+    const programmeName = budgetScenario
+      ? DEMO_BUDGET_PROGRAMME_NAME
+      : DEMO_PROGRAMME_NAME
+    let programme = currentProgrammes.find((item) => item.name === programmeName)
+    if (!programme) {
+      programme = await createProgramme({
+        name: programmeName,
+        sponsor: 'FundFlow Testnet Policy Scenarios',
+        totalBudget: budgetScenario ? 1 : 50000,
+      })
+    }
+
+    let beneficiary = currentBeneficiaries.find(
+      (item) => item.studentId === studentId,
+    )
+    if (!beneficiary) {
+      beneficiary = await createBeneficiary({
+        studentId,
+        fullName: budgetScenario
+          ? 'FundFlow Budget Scenario'
+          : 'FundFlow Policy Scenario',
+        institution: 'FundFlow Testnet Demo',
+        monthlyAllowance: 10,
+        programmeId: programme.programmeId,
+      })
+    }
+
+    const walletAddress =
+      currentBeneficiaries.find(
+        (item) => item.walletAddress && item.walletAddress.startsWith('r'),
+      )?.walletAddress || DEMO_WALLET_ADDRESS
+    beneficiary = await updateBeneficiary(beneficiary.studentId, {
+      walletAddress,
+      monthlyAllowance: 10,
     })
-    setTriggerLogs((current) => [event, ...current])
+
+    const currentSchedules = await getSchedules()
+    const schedule = currentSchedules.find(
+      (item) =>
+        item.studentId === studentId &&
+        item.programmeId === programme.programmeId,
+    )
+    if (!schedule) {
+      throw new Error(`No schedule was created for demo beneficiary ${studentId}.`)
+    }
+
+    return { programme, beneficiary, schedule }
+  }
+
+  function makeScenarioAuditEntry(payload, result) {
+    return {
+      _id: result.decisionId || `policy-test-${Date.now()}`,
+      timestamp: new Date().toISOString(),
+      eventType: 'POLICY_SCENARIO_TEST',
+      studentId: payload.studentId,
+      programmeId: payload.programmeId,
+      amount: payload.amount,
+      policyDecision: result.approved && result.executed ? 'APPROVED' : 'REJECTED',
+      decisionId: result.decisionId,
+      policyVersion: result.policyVersion,
+      reasonCode: result.reasonCode || null,
+      rejectionReason: result.reasonCode || null,
+      message: result.message || result.error || null,
+      txHash: result.txHash || null,
+      explorerUrl: result.explorerUrl || null,
+      ledgerResult: result.txHash ? 'tesSUCCESS' : null,
+    }
+  }
+
+  async function handleRunPolicyScenario(scenario) {
+    setIsTriggering(true)
+    setTriggerError('')
+    setPolicyTestResult(null)
+    let payload
+    let result
+    let pauseToRestore = null
+
+    try {
+      let fixture
+      let scenarioLabel
+      if (scenario === 'unapproved-recipient') {
+        fixture = await ensurePolicyFixture()
+        scenarioLabel = 'Unapproved Recipient'
+        const requestId = Date.now()
+        payload = {
+          programmeId: fixture.programme.programmeId,
+          studentId: `STU-UNAPPROVED-${requestId}`,
+          amount: 10,
+          scheduleId: `SCH-UNAPPROVED-${requestId}`,
+        }
+      } else {
+        fixture = await ensurePolicyFixture({
+          budgetScenario: scenario === 'budget',
+          studentId:
+            scenario === 'duplicate'
+              ? DEMO_DUPLICATE_STUDENT_ID
+              : scenario === 'student-limit'
+                ? DEMO_CAP_STUDENT_ID
+                : scenario === 'paused-programme'
+                  ? DEMO_PAUSED_STUDENT_ID
+                  : DEMO_STUDENT_ID,
+        })
+        scenarioLabel = {
+          'valid-payment': 'Valid Run',
+          duplicate: 'Duplicate Allowance',
+          'student-limit': 'Student Limit Exceeded',
+          budget: 'Budget Exceeded',
+          'paused-programme': 'Paused Programme',
+        }[scenario]
+
+        if (scenario === 'valid-payment') {
+          const settled =
+            fixture.schedule.status === 'VERIFIED' || fixture.schedule.txHash
+          if (settled) {
+            fixture = await ensurePolicyFixture({
+              studentId: `${DEMO_STUDENT_ID}-${Date.now()}`,
+            })
+          }
+          payload = {
+            programmeId: fixture.programme.programmeId,
+            studentId: fixture.beneficiary.studentId,
+            amount: Number(fixture.beneficiary.monthlyAllowance),
+            scheduleId: fixture.schedule.scheduleId,
+          }
+        } else if (scenario === 'duplicate') {
+          payload = {
+            programmeId: fixture.programme.programmeId,
+            studentId: fixture.beneficiary.studentId,
+            amount: Number(fixture.beneficiary.monthlyAllowance),
+            scheduleId: fixture.schedule.scheduleId,
+          }
+          const isSettled =
+            fixture.schedule.status === 'VERIFIED' || fixture.schedule.txHash
+          if (!isSettled) {
+            const firstPayment = await validateAndPay(payload)
+            if (!firstPayment.approved || !firstPayment.executed) {
+              throw new Error(
+                firstPayment.message ||
+                  firstPayment.reasonCode ||
+                  'Could not settle the demo payment before testing replay protection.',
+              )
+            }
+          }
+        } else if (scenario === 'student-limit') {
+          payload = {
+            programmeId: fixture.programme.programmeId,
+            studentId: fixture.beneficiary.studentId,
+            amount: Number(fixture.beneficiary.monthlyAllowance) + 1,
+            scheduleId: fixture.schedule.scheduleId,
+          }
+        } else if (scenario === 'budget') {
+          payload = {
+            programmeId: fixture.programme.programmeId,
+            studentId: fixture.beneficiary.studentId,
+            amount: Number(fixture.beneficiary.monthlyAllowance),
+            scheduleId: fixture.schedule.scheduleId,
+          }
+        } else if (scenario === 'paused-programme') {
+          if (!fixture.programme.isPaused) {
+            const paused = await toggleProgrammePause(
+              fixture.programme._id,
+              fixture.programme.programmeId,
+              false,
+            )
+            if (!paused.isPaused) {
+              throw new Error('The demo programme could not be paused.')
+            }
+            pauseToRestore = fixture.programme
+          }
+          payload = {
+            programmeId: fixture.programme.programmeId,
+            studentId: fixture.beneficiary.studentId,
+            amount: Number(fixture.beneficiary.monthlyAllowance),
+            scheduleId: fixture.schedule.scheduleId,
+          }
+        }
+      }
+
+      result = await validateAndPay(payload)
+      const expectedApproval = scenario === 'valid-payment'
+      const expectedReasonCode = {
+        duplicate: 'ERR_DUPLICATE_PAYMENT',
+        'student-limit': 'ERR_EXCEEDS_STUDENT_ALLOWANCE_CAP',
+        budget: 'ERR_INSUFFICIENT_PROGRAMME_BUDGET',
+        'unapproved-recipient': 'ERR_UNAUTHORIZED_BENEFICIARY',
+        'paused-programme': 'ERR_PROGRAMME_PAUSED',
+      }[scenario]
+      const decisionMatchesScenario = expectedApproval
+        ? Boolean(result.approved && result.executed)
+        : result.approved === false &&
+          result.reasonCode === expectedReasonCode
+      if (!decisionMatchesScenario) {
+        throw new Error(
+          result.message ||
+            result.reasonCode ||
+            `The live policy engine returned an unexpected result for ${scenarioLabel}.`,
+        )
+      }
+
+      const event = makeScenarioAuditEntry(payload, result)
+      setPolicyTestResult({
+        scenarioLabel,
+        approved: Boolean(result.approved && result.executed),
+        message:
+          result.message ||
+          result.error ||
+          (result.reasonCode
+            ? `Request rejected: ${result.reasonCode}`
+            : 'Payment settled successfully on XRPL Testnet.'),
+        decisionId: result.decisionId,
+        policyVersion: result.policyVersion,
+        reasonCode: result.reasonCode,
+        txHash: result.txHash,
+      })
+      setTriggerLogs((current) => [event, ...current])
+      setSchedules((current) =>
+        current.map((item) =>
+          item.scheduleId === payload.scheduleId
+            ? {
+                ...item,
+                status:
+                  result.approved && result.executed ? 'VERIFIED' : 'REJECTED',
+                txHash: result.txHash || item.txHash || null,
+                rejectionReason: result.reasonCode || null,
+                decisionId: result.decisionId,
+                policyVersion: result.policyVersion,
+                reasonCode: result.reasonCode || null,
+                updatedAt: new Date().toISOString(),
+              }
+            : item,
+        ),
+      )
+    } catch (error) {
+      setTriggerError(error.message)
+    } finally {
+      if (pauseToRestore) {
+        try {
+          await toggleProgrammePause(
+            pauseToRestore._id,
+            pauseToRestore.programmeId,
+            true,
+          )
+        } catch (error) {
+          setTriggerError((current) =>
+            current
+              ? `${current} · Unable to resume the demo programme: ${error.message}`
+              : `Unable to resume the demo programme: ${error.message}`,
+          )
+        }
+      }
+      await refreshDashboard(false)
+      setIsTriggering(false)
+    }
   }
 
   async function handleAgentTrigger() {
@@ -1484,7 +1870,11 @@ function App() {
     setTriggerError('')
     try {
       const result = await triggerAgent()
-      const processed = Array.isArray(result.processed) ? result.processed : []
+      const processed = Array.isArray(result.results)
+        ? result.results
+        : Array.isArray(result.processed)
+          ? result.processed
+          : []
       setTriggerResult(result)
       setSchedules((current) =>
         current.map((schedule) => {
@@ -1496,10 +1886,18 @@ function App() {
             ...schedule,
             status:
               outcome.status === 'APPROVED_AND_EXECUTED'
-                ? 'EXECUTED'
+                ? 'VERIFIED'
                 : outcome.status === 'REJECTED_BY_POLICY'
                   ? 'REJECTED'
+                  : outcome.status === 'LEDGER_FAILED'
+                    ? 'FAILED'
                   : outcome.status,
+            txHash: outcome.txHash || schedule.txHash || null,
+            rejectionReason: outcome.reasonCode || outcome.reason || null,
+            decisionId: outcome.decisionId || null,
+            policyVersion: outcome.policyVersion || null,
+            reasonCode: outcome.reasonCode || null,
+            updatedAt: new Date().toISOString(),
           }
         }),
       )
@@ -1516,11 +1914,16 @@ function App() {
             ? 'REJECTED'
             : 'APPROVED',
           rejectionReason: item.reason || null,
+          reasonCode: item.reasonCode || null,
+          decisionId: item.decisionId || null,
+          policyVersion: item.policyVersion || null,
           txHash: item.txHash || null,
+          explorerUrl: item.explorerUrl || null,
           ledgerResult: item.txHash ? 'tesSUCCESS' : null,
         })),
         ...current,
       ])
+      await refreshDashboard(false)
     } catch (error) {
       setTriggerError(error.message)
     } finally {
@@ -1609,20 +2012,20 @@ function App() {
               type="button"
               role="switch"
               aria-checked={killSwitchActive}
-              aria-label="Emergency Agent Kill-Switch"
+              aria-label="Pause New Authorisations"
               aria-busy={isTogglingKillSwitch}
               disabled={isTogglingKillSwitch || !programmes[0]?._id}
               onClick={handleToggleKillSwitch}
               title={
                 killSwitchError ||
                 (!programmes[0]?._id
-                  ? 'Emergency kill-switch unavailable: no programme is available to pause.'
-                  : 'Emergency stop for scheduled agent runs. This also appears in Policy & Mandate Controls.')
+                  ? 'Pause unavailable: no programme is available.'
+                  : 'Stops new payment signing and authorisations. It does not reverse transactions already settled on XRPL.')
               }
             >
               <Power size={16} aria-hidden="true" />
               <span className="header-kill-copy">
-                <strong>Emergency Kill-Switch</strong>
+                <strong>Pause New Authorisations</strong>
                 <small>
                   {isTogglingKillSwitch
                     ? 'UPDATING…'
@@ -1669,7 +2072,7 @@ function App() {
             auditLogs={visibleAuditLogs}
             isLoading={isLoading}
             isRefreshing={isRefreshing}
-            isTriggering={isTriggering}
+            isTriggering={isTriggering || isResettingDemo}
             triggerResult={triggerResult}
             triggerError={triggerError}
             policyTestResult={policyTestResult}
@@ -1682,10 +2085,13 @@ function App() {
             isTogglingKillSwitch={isTogglingKillSwitch}
             killSwitchError={killSwitchError}
             dashboardError={dashboardError}
+            demoResetNotice={demoResetNotice}
             lastUpdated={lastUpdated}
             onRefresh={() => refreshDashboard(true)}
+            onResetDemo={handleResetDemo}
             onTrigger={handleAgentTrigger}
-            onTestPolicyBlock={handleSimulatePolicyViolation}
+            onRunPolicyScenario={handleRunPolicyScenario}
+            isResettingDemo={isResettingDemo}
           />
         ) : activeView === 'analytics' ? (
           <AnalyticsDashboard />

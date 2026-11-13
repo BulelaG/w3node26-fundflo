@@ -44,16 +44,22 @@ router.post('/students/:studentId/claim', async (req, res) => {
 
   if (!pendingSched) {
     // Generate an on-demand claim schedule
+    const scheduleId = `SCH-CLAIM-${Date.now().toString().slice(-4)}`;
+    const now = new Date().toISOString();
     pendingSched = {
-      scheduleId: `SCH-CLAIM-${Date.now().toString().slice(-4)}`,
+      id: scheduleId,
+      _id: scheduleId,
+      scheduleId,
       studentId: beneficiary.studentId,
       programmeId: beneficiary.programmeId,
       period: "November 2026 Claim",
       amount: beneficiary.monthlyAllowance,
+      currency: "XRP",
       status: "PENDING",
       txHash: null,
       rejectionReason: null,
-      updatedAt: new Date().toISOString()
+      createdAt: now,
+      updatedAt: now
     };
     state.schedules.push(pendingSched);
   }
@@ -66,9 +72,17 @@ router.post('/students/:studentId/claim', async (req, res) => {
       scheduleId: pendingSched.scheduleId
     });
 
+    const scheduleId = pendingSched.id || pendingSched._id || pendingSched.scheduleId;
     res.json({
       success: result.approved && result.executed,
-      scheduleId: pendingSched.scheduleId,
+      id: scheduleId,
+      _id: scheduleId,
+      scheduleId,
+      period: pendingSched.period || "November 2026",
+      amount: pendingSched.amount,
+      currency: "XRP",
+      status: pendingSched.status,
+      updatedAt: pendingSched.updatedAt,
       decision: result
     });
   } catch (err) {
@@ -87,23 +101,28 @@ router.get('/students/:studentId/status', (req, res) => {
   const studentSchedules = allSchedules.filter(s => s.studentId === beneficiary.studentId);
 
   res.json({
+    id: beneficiary.id || beneficiary._id || beneficiary.studentId,
+    _id: beneficiary.id || beneficiary._id || beneficiary.studentId,
     studentId: beneficiary.studentId,
     fullName: beneficiary.fullName,
     institution: beneficiary.institution,
     monthlyAllowance: beneficiary.monthlyAllowance,
+    currency: "XRP",
     walletAddress: beneficiary.walletAddress,
     status: beneficiary.status,
     programmeId: beneficiary.programmeId,
-    disbursements: studentSchedules.map(s => ({
-      scheduleId: s.scheduleId,
-      period: s.period,
-      amount: s.amount,
-      status: s.status,
-      txHash: s.txHash,
-      xrplExplorerUrl: s.txHash ? `https://testnet.xrpl.org/transactions/${s.txHash}` : null,
-      rejectionReason: s.rejectionReason,
-      updatedAt: s.updatedAt
-    }))
+    disbursements: studentSchedules.map(s => {
+      const id = s.id || s._id || s.scheduleId;
+      return {
+        ...s,
+        id,
+        _id: id,
+        period: s.period || "November 2026",
+        currency: "XRP",
+        xrplExplorerUrl: s.txHash ? `https://testnet.xrpl.org/transactions/${s.txHash}` : null,
+        updatedAt: s.updatedAt || s.createdAt || new Date().toISOString()
+      };
+    })
   });
 });
 

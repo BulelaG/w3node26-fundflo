@@ -6,8 +6,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test:policy": "node tests/testPolicyEngine.js",
-    "test:xrpl": "node tests/testXRPLConnection.js"
+    "test": "node tests/verifyMilestone2.js",
+    "test:policy": "node tests/verifyMilestone2.js",
+    "test:xrpl": "node tests/verifyMilestone2.js"
   },
   "dependencies": {
     "cors": "^2.8.5",

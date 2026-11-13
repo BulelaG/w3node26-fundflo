@@ -115,14 +115,21 @@ async function runTestSuite() {
     console.log('✓ CFO activated Emergency Pause on programme PRG-WTC-2026');
 
     // Create a new fresh schedule to test pause
+    const scheduleId = 'SCH-NOV-004';
+    const createdAt = new Date().toISOString();
     state.schedules.push({
-      scheduleId: 'SCH-NOV-004',
+      id: scheduleId,
+      _id: scheduleId,
+      scheduleId,
       studentId: 'STU-001',
       programmeId: 'PRG-WTC-2026',
       period: 'December 2026',
       amount: 10,
+      currency: 'XRP',
       status: 'PENDING',
-      txHash: null
+      txHash: null,
+      createdAt,
+      updatedAt: createdAt
     });
 
     const test5Result = await processDisbursement({

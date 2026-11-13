@@ -17,6 +17,9 @@ const {
 } = require('../data/store');
 
 const { executePayment } = require('../xrpl/transactionService');
+const { randomUUID } = require('crypto');
+
+const POLICY_VERSION = '1.0.0';
 
 /**
  * Standardized Policy Error Codes
@@ -153,6 +156,7 @@ function evaluatePolicy(paymentProposal) {
  */
 async function processDisbursement(paymentProposal) {
   const { programmeId, studentId, amount, scheduleId } = paymentProposal;
+  const decisionId = `DEC-${randomUUID()}`;
 
   // Step 1: Independent Policy Evaluation
   const policyResult = evaluatePolicy(paymentProposal);
@@ -167,6 +171,9 @@ async function processDisbursement(paymentProposal) {
       studentId,
       scheduleId,
       amount,
+      decisionId,
+      policyVersion: POLICY_VERSION,
+      reasonCode: policyResult.reasonCode,
       policyDecision: 'REJECTED',
       rejectionReason: policyResult.reasonCode,
       message: policyResult.message,
@@ -174,13 +181,23 @@ async function processDisbursement(paymentProposal) {
       ledgerResult: null
     });
 
-    updateSchedule(scheduleId, {
-      status: 'REJECTED',
-      rejectionReason: policyResult.reasonCode
-    });
+    const schedule = getScheduleById(scheduleId);
+    if (
+      schedule &&
+      !['VERIFIED', 'PROCESSING'].includes(schedule.status) &&
+      !schedule.txHash
+    ) {
+      updateSchedule(scheduleId, {
+        status: 'REJECTED',
+        rejectionReason: policyResult.reasonCode
+      });
+    }
 
     return {
       approved: false,
+      executed: false,
+      decisionId,
+      policyVersion: POLICY_VERSION,
       reasonCode: policyResult.reasonCode,
       message: policyResult.message
     };
@@ -215,6 +232,9 @@ async function processDisbursement(paymentProposal) {
       studentId,
       scheduleId,
       amount,
+      decisionId,
+      policyVersion: POLICY_VERSION,
+      reasonCode: null,
       policyDecision: 'APPROVED',
       rejectionReason: null,
       txHash: txResult.txHash,
@@ -225,6 +245,9 @@ async function processDisbursement(paymentProposal) {
     return {
       approved: true,
       executed: true,
+      decisionId,
+      policyVersion: POLICY_VERSION,
+      reasonCode: null,
       txHash: txResult.txHash,
       explorerUrl: txResult.explorerUrl,
       ledgerIndex: txResult.ledgerIndex
@@ -242,6 +265,9 @@ async function processDisbursement(paymentProposal) {
       studentId,
       scheduleId,
       amount,
+      decisionId,
+      policyVersion: POLICY_VERSION,
+      reasonCode: 'ERR_LEDGER_EXECUTION_FAILED',
       policyDecision: 'APPROVED',
       rejectionReason: txResult.error,
       txHash: txResult.txHash,
@@ -251,6 +277,9 @@ async function processDisbursement(paymentProposal) {
     return {
       approved: true,
       executed: false,
+      decisionId,
+      policyVersion: POLICY_VERSION,
+      reasonCode: 'ERR_LEDGER_EXECUTION_FAILED',
       error: txResult.error
     };
   }

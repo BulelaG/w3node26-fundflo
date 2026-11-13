@@ -37,6 +37,7 @@ class DisbursementAgent {
           const w = await createAndFundStudentWallet();
           b.walletAddress = w.address;
           b.walletSeed = w.seed;
+          b.updatedAt = new Date().toISOString();
           console.log(`[Agent] Assigned wallet ${b.walletAddress} to ${b.studentId}`);
         } catch (e) {
           console.error(`[Agent] Failed to provision wallet for ${b.studentId}:`, e.message);
@@ -62,12 +63,26 @@ class DisbursementAgent {
 
       // 3. Submit proposal to Independent Policy Engine
       const decision = await processDisbursement(proposal);
+      const status = decision.approved
+        ? decision.executed
+          ? 'APPROVED_AND_EXECUTED'
+          : 'LEDGER_FAILED'
+        : 'REJECTED_BY_POLICY';
 
       cycleResults.push({
+        id: schedule.id || schedule._id || schedule.scheduleId,
+        _id: schedule.id || schedule._id || schedule.scheduleId,
         scheduleId: schedule.scheduleId,
         studentId: schedule.studentId,
+        period: schedule.period || "November 2026",
         amount: schedule.amount,
-        status: decision.approved && decision.executed ? 'APPROVED_AND_EXECUTED' : 'REJECTED_BY_POLICY',
+        currency: 'XRP',
+        updatedAt: schedule.updatedAt || new Date().toISOString(),
+        status,
+        reasonCode: decision.reasonCode || null,
+        decisionId: decision.decisionId || null,
+        policyVersion: decision.policyVersion || null,
+        txHash: decision.txHash || null,
         decision
       });
     }

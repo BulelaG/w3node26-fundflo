@@ -127,9 +127,16 @@ export default function AnalyticsDashboard() {
           </div>
         </div>
 
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(320px, 1fr))', gap: '20px' }}>
+        <div
+          className="treasury-comparison-grid"
+          style={{
+            display: 'grid',
+            gridTemplateColumns: 'repeat(auto-fit, minmax(min(100%, 320px), 1fr))',
+            gap: '20px',
+          }}
+        >
           {/* Legacy Status Quo */}
-          <div style={{
+          <div className="treasury-comparison-card" style={{
             padding: '20px',
             backgroundColor: '#fef2f2',
             border: '1px solid #fecaca',
@@ -151,7 +158,7 @@ export default function AnalyticsDashboard() {
           </div>
 
           {/* FundFlow XRPL */}
-          <div style={{
+          <div className="treasury-comparison-card" style={{
             padding: '20px',
             backgroundColor: '#ecfdf5',
             border: '1px solid #a7f3d0',

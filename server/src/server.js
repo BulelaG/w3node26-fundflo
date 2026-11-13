@@ -40,6 +40,7 @@ app.get('/api', (req, res) => {
       '/api/programmes',
       '/api/beneficiaries',
       '/api/schedules',
+      '/api/demo/reset',
       '/api/agent/trigger',
       '/api/audit-logs',
       '/api/students/:studentId/status'
