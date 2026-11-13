@@ -8,11 +8,8 @@ import {
   Copy,
   AlertTriangle,
   CheckCircle,
-  Database,
-  Lock,
-  Layers
+  Database
 } from 'lucide-react';
-import StatusBadge from '../components/StatusBadge';
 import { api } from '../services/api';
 
 export default function AuditorPortal({ auditLogs = [] }) {
@@ -44,7 +41,7 @@ export default function AuditorPortal({ auditLogs = [] }) {
       setInspectionResult({
         verified: true,
         log: match,
-        message: 'MATCH FOUND: Transaction is an official, policy-approved FundFlow disbursement.'
+        message: 'MATCH CONFIRMED: Transaction is an official, policy-approved FundFlow bursary disbursement.'
       });
     } else {
       setInspectionResult({
@@ -66,96 +63,92 @@ export default function AuditorPortal({ auditLogs = [] }) {
   };
 
   return (
-    <div style={{ display: 'flex', flexDirection: 'column', gap: '24px' }}>
-      {/* Header */}
-      <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+    <main className="main-content">
+      <header className="page-header">
         <div>
-          <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)', textTransform: 'uppercase', letterSpacing: '0.06em', fontWeight: '600' }}>
-            Regulatory Compliance & Forensic Audit Center
-          </span>
-          <h2 className="font-display" style={{ fontSize: '1.6rem', fontWeight: '700', color: '#ffffff', marginTop: '2px' }}>
-            Auditor-General (AGSA) Verification Hub
-          </h2>
-          <p style={{ fontSize: '0.84rem', color: 'var(--text-dim)' }}>
-            Continuous cryptographic proof-of-reserve and transaction reconciliation for South African funding bodies
-          </p>
+          <div className="eyebrow">REGULATORY COMPLIANCE / FORENSIC AUDIT</div>
+          <h1>Auditor-General (AGSA) Verification Hub</h1>
+          <p>Continuous cryptographic proof-of-reserve and transaction reconciliation for South African education funds.</p>
         </div>
+        <div className="page-actions">
+          <button
+            onClick={handleExportCSV}
+            className="btn btn-outline"
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              gap: '8px',
+              padding: '9px 16px',
+              borderRadius: '9px',
+              background: '#ffffff',
+              border: '1px solid var(--border)',
+              color: 'var(--navy)',
+              fontWeight: '600',
+              fontSize: '0.84rem'
+            }}
+          >
+            <Download size={15} color="#047857" />
+            <span>Export Forensic Dossier (.CSV)</span>
+          </button>
+        </div>
+      </header>
 
-        <button
-          onClick={handleExportCSV}
-          className="btn btn-outline"
-          style={{ fontSize: '0.84rem', padding: '9px 16px' }}
-        >
-          <Download size={15} color="var(--accent-cyan)" />
-          <span>Export Official Forensic Dossier (.CSV)</span>
-        </button>
-      </div>
-
-      {/* Proof of Reserve Deck */}
-      <div className="card" style={{
-        background: 'linear-gradient(135deg, rgba(16, 185, 129, 0.07) 0%, rgba(10, 10, 15, 0.98) 100%)',
-        border: '1px solid rgba(16, 185, 129, 0.25)',
-        padding: '24px'
-      }}>
-        <div style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '16px' }}>
+      {/* Proof of Reserve Panel */}
+      <section className="panel" style={{ padding: '24px', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0' }}>
+        <div className="panel-heading" style={{ marginBottom: '16px' }}>
           <div>
-            <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px' }}>
-              <Database size={18} color="var(--accent-green)" />
-              <h3 className="font-display" style={{ fontSize: '1.15rem', color: '#ffffff' }}>
-                On-Chain Cryptographic Proof of Reserve
-              </h3>
-            </div>
-            <p style={{ fontSize: '0.82rem', color: 'var(--text-dim)' }}>
+            <div className="eyebrow" style={{ color: '#047857' }}>ON-CHAIN RECONCILIATION</div>
+            <h2>Cryptographic Proof of Reserve</h2>
+            <p style={{ color: '#065f46' }}>
               Live validated XRP Ledger reserves backing active student bursary allocations. Verified via RPCA consensus.
             </p>
           </div>
-
-          <StatusBadge status="VERIFIED" label="RPCA VALIDATED" />
+          <span className="status-badge status-verified">
+            <ShieldCheck size={14} />
+            RPCA VALIDATED
+          </span>
         </div>
 
-        <div style={{
-          display: 'grid',
-          gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))',
-          gap: '14px',
-          marginTop: '18px'
-        }}>
-          <div style={{ padding: '14px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Sponsor Treasury Vault Address</div>
-            <div className="mono" style={{ fontSize: '0.82rem', color: 'var(--accent-cyan)', marginTop: '4px', wordBreak: 'break-all' }}>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '14px' }}>
+          <div style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #a7f3d0' }}>
+            <div style={{ fontSize: '0.72rem', color: '#047857', fontWeight: '700', textTransform: 'uppercase' }}>
+              Treasury Vault Address
+            </div>
+            <div className="mono" style={{ fontSize: '0.84rem', color: 'var(--navy)', marginTop: '4px', wordBreak: 'break-all' }}>
               {adminWalletInfo ? adminWalletInfo.address : 'Connecting to Testnet...'}
             </div>
           </div>
 
-          <div style={{ padding: '14px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Live Validated Reserve</div>
-            <div className="font-display" style={{ fontSize: '1.3rem', fontWeight: '700', color: 'var(--accent-green)', marginTop: '2px' }}>
+          <div style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #a7f3d0' }}>
+            <div style={{ fontSize: '0.72rem', color: '#047857', fontWeight: '700', textTransform: 'uppercase' }}>
+              Live Validated Reserve
+            </div>
+            <div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#047857', marginTop: '2px' }}>
               {adminWalletInfo ? `${adminWalletInfo.balanceXRP.toFixed(2)} XRP` : 'Syncing...'}
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>Native Testnet XRP</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>Native Testnet XRP</div>
           </div>
 
-          <div style={{ padding: '14px', backgroundColor: 'var(--bg-surface-elevated)', borderRadius: '10px', border: '1px solid var(--border-color)' }}>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)', textTransform: 'uppercase' }}>Ledger Account Sequence</div>
-            <div className="font-display" style={{ fontSize: '1.3rem', fontWeight: '700', color: '#ffffff', marginTop: '2px' }}>
+          <div style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #a7f3d0' }}>
+            <div style={{ fontSize: '0.72rem', color: '#047857', fontWeight: '700', textTransform: 'uppercase' }}>
+              Ledger Account Sequence
+            </div>
+            <div style={{ fontSize: '1.4rem', fontWeight: '700', color: 'var(--navy)', marginTop: '2px' }}>
               #{adminWalletInfo ? adminWalletInfo.sequence : '---'}
             </div>
-            <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>Deterministic Nonce Count</div>
+            <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>Deterministic Nonce Count</div>
           </div>
         </div>
-      </div>
+      </section>
 
-      {/* Forensic Hash Verifier / Inspector */}
-      <div className="card">
-        <div style={{ marginBottom: '16px' }}>
-          <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <Search size={18} color="var(--accent-cyan)" />
-            <h3 className="font-display" style={{ fontSize: '1.15rem', color: '#ffffff' }}>
-              Forensic Transaction Hash Inspector
-            </h3>
+      {/* Forensic Hash Inspector */}
+      <section className="panel" style={{ padding: '24px' }}>
+        <div className="panel-heading" style={{ marginBottom: '16px' }}>
+          <div>
+            <div className="eyebrow">INTEGRITY CHECK</div>
+            <h2>Forensic Transaction Hash Inspector</h2>
+            <p>Paste any 64-character transaction hash from the XRP Ledger to verify whether it was authorized by a signed bursary policy.</p>
           </div>
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-dim)', marginTop: '2px' }}>
-            Paste any 64-character transaction hash from the XRP Ledger to verify whether it was authorized by a signed bursary policy or represents an unmonitored transfer.
-          </p>
         </div>
 
         <form onSubmit={handleInspectHash} style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
@@ -168,73 +161,76 @@ export default function AuditorPortal({ auditLogs = [] }) {
             className="form-input mono"
             style={{ flex: 1, minWidth: '280px', fontSize: '0.85rem' }}
           />
-          <button type="submit" className="btn btn-primary" style={{ padding: '10px 20px' }}>
+          <button
+            type="submit"
+            className="btn btn-primary"
+            style={{
+              padding: '10px 20px',
+              borderRadius: '9px',
+              background: '#0f172a',
+              color: '#ffffff',
+              fontWeight: '600'
+            }}
+          >
             Verify Cryptographic Match
           </button>
         </form>
 
-        {/* Verification Result Display */}
         {inspectionResult && (
           <div style={{
             marginTop: '18px',
-            padding: '16px 20px',
+            padding: '18px',
             borderRadius: '10px',
-            backgroundColor: inspectionResult.verified ? 'rgba(16, 185, 129, 0.12)' : 'rgba(239, 68, 68, 0.12)',
-            border: `1px solid ${inspectionResult.verified ? 'rgba(16, 185, 129, 0.35)' : 'rgba(239, 68, 68, 0.35)'}`
+            backgroundColor: inspectionResult.verified ? '#ecfdf5' : '#fef2f2',
+            border: `1px solid ${inspectionResult.verified ? '#a7f3d0' : '#fecaca'}`
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
               {inspectionResult.verified ? (
-                <CheckCircle size={18} color="var(--accent-green)" />
+                <CheckCircle size={18} color="#047857" />
               ) : (
-                <AlertTriangle size={18} color="var(--accent-red)" />
+                <AlertTriangle size={18} color="#b91c1c" />
               )}
-              <strong style={{ color: inspectionResult.verified ? 'var(--accent-green)' : 'var(--accent-red)', fontSize: '0.95rem' }}>
+              <strong style={{ color: inspectionResult.verified ? '#047857' : '#b91c1c', fontSize: '0.95rem' }}>
                 {inspectionResult.verified ? 'VERIFIED POLICY MATCH' : 'UNVERIFIED OUT-OF-BAND MOVEMENT'}
               </strong>
             </div>
 
-            <p style={{ fontSize: '0.84rem', color: 'var(--text-main)', marginBottom: '8px' }}>
+            <p style={{ fontSize: '0.86rem', color: 'var(--navy)', marginBottom: '8px' }}>
               {inspectionResult.message}
             </p>
 
             {inspectionResult.log && (
-              <div style={{ fontSize: '0.8rem', color: 'var(--text-dim)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(255,255,255,0.08)' }}>
+              <div style={{ fontSize: '0.82rem', color: 'var(--muted)', display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(180px, 1fr))', gap: '10px', marginTop: '10px', paddingTop: '10px', borderTop: '1px solid rgba(0,0,0,0.06)' }}>
                 <div><strong>Student ID:</strong> {inspectionResult.log.studentId}</div>
                 <div><strong>Mandate:</strong> {inspectionResult.log.programmeId}</div>
-                <div><strong>Amount Disbursed:</strong> {inspectionResult.log.amount} XRP</div>
+                <div><strong>Amount:</strong> {inspectionResult.log.amount} XRP</div>
                 <div><strong>Timestamp:</strong> {new Date(inspectionResult.log.timestamp).toLocaleString()}</div>
               </div>
             )}
           </div>
         )}
-      </div>
+      </section>
 
-      {/* Forensic Event Ledger Table */}
-      <div className="card">
-        <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '14px' }}>
+      {/* Forensic Event Table */}
+      <section className="panel schedule-panel">
+        <div className="panel-heading">
           <div>
-            <h3 className="font-display" style={{ fontSize: '1.1rem', fontWeight: '700', color: '#ffffff' }}>
-              Chronological Forensic Ledger Stream
-            </h3>
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-dim)' }}>
-              Complete record of all policy evaluation attempts, reason codes, and settlement hashes
-            </p>
+            <div className="eyebrow">CHRONOLOGICAL EVENT STREAM</div>
+            <h2>Forensic Audit Log</h2>
           </div>
-          <span style={{ fontSize: '0.75rem', color: 'var(--text-dim)', fontWeight: '600' }}>
-            {auditLogs.length} Total Records
-          </span>
+          <span className="panel-count">{auditLogs.length} records</span>
         </div>
 
-        <div className="table-container" style={{ maxHeight: '420px', overflowY: 'auto' }}>
-          <table>
+        <div className="table-wrap">
+          <table className="schedule-table">
             <thead>
               <tr>
-                <th>Audit ID / Time</th>
-                <th>Mandate / Student</th>
-                <th>Amount</th>
-                <th>Policy Gate</th>
-                <th>Ledger Result</th>
-                <th>Transaction Hash</th>
+                <th>TIME</th>
+                <th>STUDENT / MANDATE</th>
+                <th>AMOUNT</th>
+                <th>POLICY GATE</th>
+                <th>LEDGER RESULT</th>
+                <th>TRANSACTION HASH</th>
               </tr>
             </thead>
             <tbody>
@@ -242,30 +238,29 @@ export default function AuditorPortal({ auditLogs = [] }) {
                 const isApproved = log.policyDecision === 'APPROVED';
 
                 return (
-                  <tr key={log.id}>
-                    <td>
-                      <div className="mono" style={{ fontSize: '0.76rem', color: 'var(--text-main)' }}>{log.id}</div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>
-                        {new Date(log.timestamp).toLocaleTimeString()}
-                      </div>
+                  <tr key={log.id || log._id}>
+                    <td className="time-cell">
+                      {new Date(log.timestamp).toLocaleTimeString()}
                     </td>
                     <td>
-                      <div style={{ fontWeight: '600', color: '#ffffff' }}>{log.studentId}</div>
-                      <div style={{ fontSize: '0.72rem', color: 'var(--text-dim)' }}>{log.programmeId}</div>
+                      <strong>{log.studentId}</strong>
+                      <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>{log.programmeId}</div>
+                    </td>
+                    <td className="amount-cell">
+                      <strong>{log.amount} XRP</strong>
                     </td>
                     <td>
-                      <span style={{ fontWeight: '700', color: 'var(--accent-cyan)' }}>{log.amount} XRP</span>
-                    </td>
-                    <td>
-                      <StatusBadge status={isApproved ? 'APPROVED' : 'BLOCKED'} />
+                      <span className={`status-badge ${isApproved ? 'status-verified' : 'status-rejected'}`}>
+                        {log.policyDecision}
+                      </span>
                     </td>
                     <td>
                       {log.ledgerResult ? (
-                        <span style={{ color: 'var(--accent-green)', fontWeight: '600', fontSize: '0.78rem' }}>
+                        <span style={{ color: '#047857', fontWeight: '600', fontSize: '0.8rem' }}>
                           {log.ledgerResult}
                         </span>
                       ) : (
-                        <span style={{ color: '#ef4444', fontSize: '0.75rem', fontWeight: '600' }}>
+                        <span style={{ color: '#b91c1c', fontSize: '0.76rem', fontWeight: '600' }}>
                           {log.rejectionReason}
                         </span>
                       )}
@@ -276,13 +271,13 @@ export default function AuditorPortal({ auditLogs = [] }) {
                           href={log.explorerUrl || `https://testnet.xrpl.org/transactions/${log.txHash}`}
                           target="_blank"
                           rel="noreferrer"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.78rem' }}
+                          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}
                         >
                           <span className="mono">{log.txHash.substring(0, 10)}...</span>
                           <ExternalLink size={12} />
                         </a>
                       ) : (
-                        <span style={{ fontSize: '0.74rem', color: 'var(--text-dim)' }}>No Tx Dispatched</span>
+                        <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>No Tx Dispatched</span>
                       )}
                     </td>
                   </tr>
@@ -291,7 +286,7 @@ export default function AuditorPortal({ auditLogs = [] }) {
             </tbody>
           </table>
         </div>
-      </div>
-    </div>
+      </section>
+    </main>
   );
 }

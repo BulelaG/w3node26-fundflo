@@ -1,146 +1,1668 @@
-import React, { useState, useEffect, useCallback } from 'react';
-import Navbar from './components/Navbar';
-import AdminDashboard from './pages/AdminDashboard';
-import AnalyticsDashboard from './pages/AnalyticsDashboard';
-import AuditorPortal from './pages/AuditorPortal';
-import StudentPortal from './pages/StudentPortal';
-import { api } from './services/api';
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from 'react'
+import {
+  ArrowDownRight,
+  ArrowRight,
+  ArrowUpRight,
+  BadgeCheck,
+  Check,
+  ChevronDown,
+  CircleAlert,
+  Clock3,
+  Copy,
+  ExternalLink,
+  FileCheck2,
+  LayoutDashboard,
+  LoaderCircle,
+  Power,
+  RefreshCw,
+  ShieldAlert,
+  ShieldCheck,
+  SlidersHorizontal,
+  TrendingUp,
+  UserRound,
+  Users,
+  Wallet,
+  Waves,
+  Zap,
+} from 'lucide-react'
+import {
+  getAuditLogs,
+  getBeneficiaries,
+  getHealth,
+  getApiMode,
+  getProgrammes,
+  getSchedules,
+  getStudentStatus,
+  subscribeToApiMode,
+  triggerAgent,
+  toggleProgrammePause,
+} from './services/api.js'
+import AnalyticsDashboard from './pages/AnalyticsDashboard.jsx'
+import AuditorPortal from './pages/AuditorPortal.jsx'
+import './App.css'
 
-export default function App() {
-  const [activeTab, setActiveTab] = useState('admin');
-  const [programmes, setProgrammes] = useState([]);
-  const [programme, setProgramme] = useState(null);
-  const [beneficiaries, setBeneficiaries] = useState([]);
-  const [schedules, setSchedules] = useState([]);
-  const [auditLogs, setAuditLogs] = useState([]);
-  const [auditSummary, setAuditSummary] = useState({});
-  const [isLoading, setIsLoading] = useState(true);
-  const [isRefreshing, setIsRefreshing] = useState(false);
-  const [error, setError] = useState(null);
+const REFRESH_INTERVAL = 30000
+const ZAR_PER_RLUSD = 18
 
-  const loadAllData = useCallback(async (silent = false) => {
-    if (!silent) setIsRefreshing(true);
-    try {
-      const [progs, bens, scheds, logs, summary] = await Promise.all([
-        api.getProgrammes().catch(() => []),
-        api.getBeneficiaries().catch(() => []),
-        api.getSchedules().catch(() => []),
-        api.getAuditLogs().catch(() => []),
-        api.getAuditSummary().catch(() => ({}))
-      ]);
+function fetchDashboardData() {
+  return Promise.allSettled([
+    getHealth(),
+    getProgrammes(),
+    getBeneficiaries(),
+    getSchedules(),
+    getAuditLogs(),
+  ])
+}
 
-      if (progs && progs.length > 0) {
-        setProgrammes(progs);
-        setProgramme(prev => {
-          if (prev) {
-            const found = progs.find(p => p.id === prev.id);
-            if (found) return found;
-          }
-          return progs[0];
-        });
-      }
-      setBeneficiaries(bens || []);
-      setSchedules(scheds || []);
-      setAuditLogs(logs || []);
-      setAuditSummary(summary || {});
-      setError(null);
-    } catch (err) {
-      console.error('Failed to load application state:', err);
-      setError('Unable to connect to FundFlow backend on http://localhost:5000');
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, []);
+function formatCurrency(value, currency = 'XRP', maximumFractionDigits = 0) {
+  const amount = Number(value) || 0
+  if (currency === 'RLUSD') {
+    return `RLUSD ${new Intl.NumberFormat('en-ZA', {
+      minimumFractionDigits: maximumFractionDigits ? 2 : 0,
+      maximumFractionDigits,
+    }).format(amount)}`
+  }
 
-  useEffect(() => {
-    loadAllData();
-    const interval = setInterval(() => {
-      loadAllData(true);
-    }, 5000);
-    return () => clearInterval(interval);
-  }, [loadAllData]);
+  return new Intl.NumberFormat('en-ZA', {
+    style: 'currency',
+    currency,
+    minimumFractionDigits: maximumFractionDigits,
+    maximumFractionDigits,
+  }).format(amount)
+}
 
-  const handleSelectProgramme = (id) => {
-    const selected = programmes.find(p => p.id === id);
-    if (selected) {
-      setProgramme(selected);
-    }
-  };
+function formatProgrammeVault(programmes) {
+  const totalsByCurrency = new Map()
+  for (const programme of programmes) {
+    const currency = programme.currency || 'XRP'
+    totalsByCurrency.set(
+      currency,
+      (totalsByCurrency.get(currency) || 0) + (Number(programme.totalBudget) || 0),
+    )
+  }
+
+  return [...totalsByCurrency]
+    .map(([currency, total]) => formatCurrency(total, currency))
+    .join(' / ')
+}
+
+function formatDate(value, options = {}) {
+  if (!value) return '—'
+  const date = new Date(value)
+  if (Number.isNaN(date.getTime())) return '—'
+  return date.toLocaleString('en-ZA', options)
+}
+
+function compactHash(hash) {
+  if (!hash) return null
+  if (hash.length <= 18) return hash
+  return `${hash.slice(0, 10)}...${hash.slice(-8)}`
+}
+
+function truncateWallet(address) {
+  if (!address || address.length <= 18) return address || ''
+  return `${address.slice(0, 9)}...${address.slice(-6)}`
+}
+
+function getStudentCap(student, overrides) {
+  const override = overrides[student.studentId]
+  if (override === undefined || override === '') {
+    return Number(student.monthlyAllowance) || 0
+  }
+  const parsed = Number(override)
+  return Number.isFinite(parsed) && parsed >= 0
+    ? parsed
+    : Number(student.monthlyAllowance) || 0
+}
+
+function isWalletApproved(student, overrides) {
+  const override = overrides[student.studentId]
+  if (typeof override === 'boolean') return override
+  return (student.status || '').toUpperCase() === 'ACTIVE'
+}
+
+function StatusBadge({ status }) {
+  const normalized = (status || 'UNKNOWN')
+    .toLowerCase()
+    .replaceAll('_', '-')
+    .replaceAll(' ', '-')
+  const label = (status || 'Unknown').replaceAll('_', ' ')
+  const icon =
+    normalized.includes('reject') ||
+    normalized.includes('paused') ||
+    normalized.includes('blocked') ||
+    normalized.includes('halt') ? (
+      <CircleAlert size={13} />
+    ) : normalized.includes('pending') ? (
+      <Clock3 size={13} />
+    ) : normalized.includes('active') ||
+      normalized.includes('verified') ||
+      normalized.includes('executed') ||
+      normalized.includes('approved') ? (
+      <Check size={13} />
+    ) : null
 
   return (
-    <div style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#000000' }}>
-      <Navbar
-        activeTab={activeTab}
-        setActiveTab={setActiveTab}
-        onRefresh={() => loadAllData(false)}
-        isRefreshing={isRefreshing}
-      />
+    <span className={`status-badge status-${normalized}`}>
+      {icon}
+      {label}
+    </span>
+  )
+}
 
-      <main className="container" style={{ flex: 1 }}>
-        {error && (
-          <div style={{
-            padding: '16px 20px',
-            backgroundColor: 'rgba(239, 68, 68, 0.12)',
-            border: '1px solid rgba(239, 68, 68, 0.4)',
-            borderRadius: '12px',
-            color: '#fca5a5',
-            marginBottom: '24px',
-            fontSize: '0.88rem'
-          }}>
-            <strong>Connection Notice:</strong> {error}
+function PageHeader({ title, description, eyebrow, actions }) {
+  return (
+    <header className="page-header">
+      <div>
+        <div className="eyebrow">{eyebrow}</div>
+        <h1>{title}</h1>
+        <p>{description}</p>
+      </div>
+      <div className="page-actions">{actions}</div>
+    </header>
+  )
+}
+
+function MetricCard({ label, value, detail, icon: Icon, tone = 'blue', trend }) {
+  return (
+    <article className="metric-card">
+      <div className="metric-top">
+        <span className={`metric-icon metric-${tone}`}>
+          <Icon size={18} />
+        </span>
+        {trend && (
+          <span className="metric-trend">
+            <ArrowUpRight size={14} />
+            {trend}
+          </span>
+        )}
+      </div>
+      <div
+        className={`metric-value ${typeof value === 'string' ? 'financial-value' : ''}`}
+      >
+        {value}
+      </div>
+      <div className="metric-label">{label}</div>
+      <div className="metric-detail">{detail}</div>
+    </article>
+  )
+}
+
+function PipelineBanner({ isBlocked, blockedCount }) {
+  return (
+    <section
+      className={`pipeline-banner ${isBlocked ? 'is-blocked' : ''}`}
+      aria-label="Disbursement request pipeline"
+      aria-live="polite"
+    >
+      <div className="pipeline-summary">
+        <span className="pipeline-eyebrow">DISBURSEMENT FLOW</span>
+        <strong>
+          {isBlocked
+            ? `${blockedCount} ${blockedCount === 1 ? 'request' : 'requests'} blocked`
+            : 'Three-step assurance'}
+        </strong>
+        <small>
+          {isBlocked
+            ? 'Independent policy engine prevented ledger submission.'
+            : 'Every request is checked before it reaches the ledger.'}
+        </small>
+      </div>
+      <div className="pipeline-steps">
+        <div className="pipeline-step">
+          <span className="pipeline-step-number">1</span>
+          <Zap size={17} />
+          <span>Autonomous Agent</span>
+        </div>
+        <ArrowRight className="pipeline-arrow" size={18} aria-hidden="true" />
+        <div className={`pipeline-step policy-step ${isBlocked ? 'blocked' : ''}`}>
+          <span className="pipeline-step-number">2</span>
+          {isBlocked ? <ShieldAlert size={18} /> : <ShieldCheck size={18} />}
+          <span>Independent Policy Engine</span>
+        </div>
+        <ArrowRight className="pipeline-arrow" size={18} aria-hidden="true" />
+        <div className={`pipeline-step ledger-step ${isBlocked ? 'blocked' : ''}`}>
+          <span className="pipeline-step-number">3</span>
+          <Waves size={18} />
+          <span>XRPL Testnet Ledger</span>
+        </div>
+      </div>
+    </section>
+  )
+}
+
+function ProgrammeCard({ programme, isPaused }) {
+  if (!programme) {
+    return (
+      <section className="panel programme-panel">
+        <div className="panel-heading">
+          <div>
+            <div className="eyebrow">ACTIVE MANDATE</div>
+            <h2>Programme mandate</h2>
+          </div>
+        </div>
+        <div className="empty-state">No funding programmes are available.</div>
+      </section>
+    )
+  }
+
+  const utilization =
+    programme.totalBudget > 0
+      ? Math.min(
+          100,
+          Math.max(
+            0,
+            ((programme.totalBudget - programme.remainingBudget) /
+              programme.totalBudget) *
+              100,
+          ),
+        )
+      : 0
+
+  return (
+    <section className="panel programme-panel">
+      <div className="panel-heading">
+        <div>
+          <div className="eyebrow">ACTIVE MANDATE</div>
+          <h2>Programme mandate</h2>
+        </div>
+        <StatusBadge status={isPaused ? 'PAUSED' : 'ACTIVE'} />
+      </div>
+
+      <div className="programme-name-row">
+        <span className="programme-symbol">
+          <Wallet size={21} />
+        </span>
+        <div>
+          <h3>{programme.name}</h3>
+          <p>{programme.sponsor}</p>
+        </div>
+      </div>
+
+      <div className="budget-numbers">
+        <div>
+          <span>Remaining budget</span>
+          <strong className="financial-value">
+            {formatCurrency(programme.remainingBudget, programme.currency)}
+          </strong>
+        </div>
+        <div className="budget-total">
+          <span>Total mandate</span>
+          <strong className="financial-value">
+            {formatCurrency(programme.totalBudget, programme.currency)}
+          </strong>
+        </div>
+      </div>
+      <div
+        className="budget-progress"
+        role="progressbar"
+        aria-label="Programme budget used"
+        aria-valuenow={Math.round(utilization)}
+        aria-valuemin={0}
+        aria-valuemax={100}
+      >
+        <span style={{ width: `${utilization}%` }} />
+      </div>
+      <div className="budget-foot">
+        <span>{Math.round(utilization)}% allocated</span>
+        <span>{programme.beneficiaryCount} beneficiaries</span>
+      </div>
+      <div className="programme-meta">
+        <span>
+          <span className="meta-dot" />
+          {programme.programmeId}
+        </span>
+        <span>Updated {formatDate(programme.createdAt, { dateStyle: 'medium' })}</span>
+      </div>
+    </section>
+  )
+}
+
+function PolicyControls({
+  beneficiaries,
+  capOverrides,
+  onCapChange,
+  whitelistOverrides,
+  onWhitelistChange,
+  currency,
+  killSwitchActive,
+  onToggleKillSwitch,
+  isTogglingKillSwitch,
+  killSwitchError,
+}) {
+  return (
+    <section className="panel policy-controls-panel">
+      <div className="panel-heading policy-controls-heading">
+        <div>
+          <div className="eyebrow">MANDATE &amp; POLICY CONTROLS</div>
+          <h2>Policy &amp; Mandate Controls</h2>
+          <p>Set per-student monthly limits and stop autonomous execution instantly.</p>
+        </div>
+        <span className="demo-control-tag">
+          <SlidersHorizontal size={13} />
+          DEMO CONTROLS
+        </span>
+      </div>
+
+      <div className="policy-controls-grid">
+        <div className="cap-control-list">
+          <div className="cap-list-heading">
+            <span>BENEFICIARY / APPROVED WALLET</span>
+            <span>MAX CAP · {currency}</span>
+            <span>WHITELIST</span>
+          </div>
+          {beneficiaries.length ? (
+            beneficiaries.map((student) => (
+              <div className="cap-control-row" key={student.studentId}>
+                <span className="cap-student">
+                  <span className="cap-avatar">
+                    {student.fullName
+                      .split(' ')
+                      .map((part) => part[0])
+                      .slice(0, 2)
+                      .join('')}
+                  </span>
+                  <span>
+                    <strong>{student.fullName}</strong>
+                    <small>{student.studentId}</small>
+                    <small
+                      className="cap-wallet-address"
+                      title={student.walletAddress || 'No wallet on file'}
+                    >
+                      {student.walletAddress || 'No wallet on file'}
+                    </small>
+                  </span>
+                </span>
+                <label className="cap-input-wrap">
+                  <span className="sr-only">
+                    Monthly budget cap for {student.fullName}
+                  </span>
+                  <input
+                    type="number"
+                    min="0"
+                    step="50"
+                    value={
+                      capOverrides[student.studentId] ??
+                      student.monthlyAllowance
+                    }
+                    onChange={(event) =>
+                      onCapChange(student.studentId, event.target.value)
+                    }
+                  />
+                  <span>{currency}</span>
+                </label>
+                <div className="whitelist-control">
+                  <span
+                    className={`whitelist-status ${
+                      isWalletApproved(student, whitelistOverrides)
+                        ? 'approved'
+                        : 'not-approved'
+                    }`}
+                  >
+                    <span />
+                    {isWalletApproved(student, whitelistOverrides)
+                      ? 'Approved'
+                      : 'Not approved'}
+                  </span>
+                  <button
+                    className="whitelist-action-button"
+                    type="button"
+                    disabled={!student.walletAddress}
+                    aria-label={`${
+                      isWalletApproved(student, whitelistOverrides)
+                        ? 'Revoke'
+                        : 'Approve'
+                    } ${student.walletAddress || `wallet for ${student.fullName}`}`}
+                    onClick={() =>
+                      onWhitelistChange(
+                        student.studentId,
+                        !isWalletApproved(student, whitelistOverrides),
+                      )
+                    }
+                  >
+                    {isWalletApproved(student, whitelistOverrides)
+                      ? 'Revoke'
+                      : 'Approve'}
+                  </button>
+                </div>
+              </div>
+            ))
+          ) : (
+            <div className="empty-state cap-empty">
+              Beneficiary limits will appear here.
+            </div>
+          )}
+          <div className="cap-control-note">
+            Cap and whitelist edits apply to this demo session; the API does
+            not yet persist individual policy changes.
+          </div>
+        </div>
+
+        <aside
+          className={`kill-switch-panel ${killSwitchActive ? 'engaged' : ''}`}
+        >
+          <div className="kill-switch-heading">
+            <span className="kill-switch-icon">
+              <Power size={18} />
+            </span>
+            <span
+              className={`kill-switch-state ${killSwitchActive ? 'halted' : ''}`}
+            >
+              <span />
+              {killSwitchActive ? 'ENGAGED' : 'STANDBY'}
+            </span>
+          </div>
+          <h3>Emergency Agent Kill-Switch</h3>
+          <p>
+            {killSwitchActive
+              ? 'Autonomous payment cycles are halted until the mandate is resumed.'
+              : 'Pause the mandate to prevent the agent from starting new payment cycles.'}
+          </p>
+          <div className="kill-switch-action">
+            <span>{killSwitchActive ? 'Agent execution halted' : 'Agent execution allowed'}</span>
+            <button
+              className={`switch-control ${killSwitchActive ? 'on' : ''}`}
+              type="button"
+              role="switch"
+              aria-checked={killSwitchActive}
+              aria-label="Toggle emergency Agent Kill-Switch"
+              onClick={onToggleKillSwitch}
+              disabled={isTogglingKillSwitch}
+            >
+              <span />
+            </button>
+          </div>
+          {killSwitchError && (
+            <div className="kill-switch-error">{killSwitchError}</div>
+          )}
+          <div className="kill-switch-footnote">
+            Toggle is backed by the programme pause endpoint. Settled ledger
+            transactions cannot be reversed.
+          </div>
+        </aside>
+      </div>
+    </section>
+  )
+}
+
+function AgentCard({
+  isRunning,
+  triggerResult,
+  onTrigger,
+  onTestPolicyBlock,
+  policyTestResult,
+  isKillSwitchActive,
+  error,
+}) {
+  return (
+    <section className="agent-card">
+      <div className="agent-card-glow" />
+      <div className="agent-card-header">
+        <span className="agent-icon">
+          <Zap size={19} fill="currentColor" />
+        </span>
+        <span className="agent-label">AUTONOMOUS AGENT</span>
+        <span className={`agent-live ${isKillSwitchActive ? 'is-halted' : ''}`}>
+          <span />
+          {isKillSwitchActive ? 'HALTED' : 'READY'}
+        </span>
+      </div>
+      <h2>Disbursement cycle</h2>
+      <p className="agent-description">
+        Scan pending schedules, enforce policy, and settle approved payments on
+        XRPL Testnet.
+      </p>
+
+      {triggerResult ? (
+        <div className="cycle-result">
+          <div className="cycle-result-heading">
+            <BadgeCheck size={17} />
+            Cycle {triggerResult.cycleId}
+          </div>
+          <div className="cycle-result-stats">
+            <span>
+              <strong>{triggerResult.scannedCount}</strong> scanned
+            </span>
+            <span>
+              <strong>
+                {
+                  (triggerResult.processed || []).filter((item) =>
+                    item.status.includes('APPROVED'),
+                  ).length
+                }
+              </strong>{' '}
+              approved
+            </span>
+            <span>
+              <strong>
+                {
+                  (triggerResult.processed || []).filter((item) =>
+                    item.status.includes('REJECTED'),
+                  ).length
+                }
+              </strong>{' '}
+              blocked
+            </span>
+          </div>
+        </div>
+      ) : (
+        <div className="agent-ready-row">
+          <span className="agent-ready-dot" />
+          <span>Independent policy engine is standing by</span>
+        </div>
+      )}
+
+      {policyTestResult && (
+        <div
+          className="policy-test-result"
+          role="alert"
+          aria-live="assertive"
+        >
+          <span className="policy-test-result-icon">
+            <ShieldCheck size={16} />
+          </span>
+          <span>
+            <strong>INDEPENDENT POLICY ENGINE · REJECTED</strong>
+            <small className="financial-value">
+              Mock request {policyTestResult.scheduleId} for{' '}
+              {policyTestResult.studentId}: {formatCurrency(policyTestResult.amount)}{' '}
+              exceeds the {formatCurrency(policyTestResult.cap)} student cap.
+            </small>
+            <code>Audit reason: {policyTestResult.reason}</code>
+          </span>
+        </div>
+      )}
+
+      {error && <div className="inline-error">{error}</div>}
+      {isKillSwitchActive && (
+        <div className="kill-switch-banner">
+          <CircleAlert size={14} />
+          Kill-switch engaged — agent execution is disabled.
+        </div>
+      )}
+      <div className="agent-actions">
+        <button
+          className="button button-agent"
+          onClick={onTrigger}
+          disabled={isRunning || isKillSwitchActive}
+        >
+          {isRunning ? (
+            <>
+              <LoaderCircle className="spin" size={17} />
+              Running…
+            </>
+          ) : isKillSwitchActive ? (
+            <>
+              <Power size={15} />
+              Agent Halted
+            </>
+          ) : (
+            <>
+              <Zap size={16} />
+              Agent Trigger
+              <ArrowRight size={16} />
+            </>
+          )}
+        </button>
+        <button
+          className="button button-test-policy"
+          onClick={onTestPolicyBlock}
+          disabled={isRunning}
+        >
+          <ShieldCheck size={15} />
+          Simulate Policy Violation
+        </button>
+      </div>
+      <div className="agent-footnote">
+        <ShieldCheck size={14} />
+        Simulation only — no payment is submitted
+      </div>
+    </section>
+  )
+}
+
+function ScheduleTable({
+  schedules,
+  beneficiaries,
+  currency,
+  killSwitchActive,
+  whitelistOverrides,
+}) {
+  const beneficiaryById = useMemo(
+    () => new Map(beneficiaries.map((student) => [student.studentId, student])),
+    [beneficiaries],
+  )
+  const pendingCount = schedules.filter(
+    (schedule) => (schedule.status || '').toUpperCase() === 'PENDING',
+  ).length
+
+  return (
+    <section className="panel schedule-panel">
+      <div className="panel-heading">
+        <div>
+          <div className="eyebrow">DISBURSEMENT PIPELINE</div>
+          <h2>Scheduled payments</h2>
+        </div>
+        <span className={`panel-count ${killSwitchActive ? 'is-halted' : ''}`}>
+          {killSwitchActive && pendingCount
+            ? `${pendingCount} runs halted`
+            : `${schedules.length} records`}
+        </span>
+      </div>
+      {schedules.length ? (
+        <div className="table-scroll">
+          <table>
+            <thead>
+              <tr>
+                <th>Beneficiary</th>
+                <th>Schedule</th>
+                <th>Amount</th>
+                <th>Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {schedules.map((schedule) => {
+                const student = beneficiaryById.get(schedule.studentId)
+                const isPending =
+                  (schedule.status || '').toUpperCase() === 'PENDING'
+                const isHalted = killSwitchActive && isPending
+                const whitelistBlocked =
+                  !killSwitchActive &&
+                  isPending &&
+                  student &&
+                  !isWalletApproved(student, whitelistOverrides)
+                const displayedStatus = isHalted
+                  ? 'HALTED'
+                  : whitelistBlocked
+                    ? 'BLOCKED'
+                    : schedule.status
+                return (
+                  <tr key={schedule.scheduleId}>
+                    <td>
+                      <div className="person-cell">
+                        <span className="avatar avatar-student">
+                          {(student?.fullName || schedule.studentId)
+                            .split(' ')
+                            .map((part) => part[0])
+                            .slice(0, 2)
+                            .join('')}
+                        </span>
+                        <span>
+                          <strong>{student?.fullName || schedule.studentId}</strong>
+                          <small>{schedule.studentId}</small>
+                        </span>
+                      </div>
+                    </td>
+                    <td>
+                      <strong>{schedule.month || schedule.scheduleId}</strong>
+                      <small className="table-subtext">{schedule.scheduleId}</small>
+                    </td>
+                    <td className="amount-cell">
+                      {formatCurrency(schedule.amount, currency)}
+                    </td>
+                    <td>
+                      <StatusBadge status={displayedStatus} />
+                      {isHalted && (
+                        <small className="run-state-note">
+                          Emergency kill-switch engaged
+                        </small>
+                      )}
+                      {whitelistBlocked && (
+                        <small className="run-state-note is-policy-block">
+                          ERR_BENEFICIARY_NOT_WHITELISTED
+                        </small>
+                      )}
+                    </td>
+                  </tr>
+                )
+              })}
+            </tbody>
+          </table>
+        </div>
+      ) : (
+        <div className="empty-state">No scheduled payments to display.</div>
+      )}
+      <div className="table-footer">
+        <span>
+          <ShieldCheck size={14} /> All payments are policy-gated
+        </span>
+        <span>
+          {killSwitchActive
+            ? 'Disable the kill-switch to resume pending runs'
+            : 'Schedule data refreshes with the dashboard'}
+        </span>
+      </div>
+    </section>
+  )
+}
+
+function AuditPanel({ auditLogs, currency }) {
+  return (
+    <section className="panel audit-panel">
+      <div className="panel-heading">
+        <div>
+          <div className="eyebrow">XRPL TESTNET</div>
+          <h2>Live audit log</h2>
+        </div>
+        <span className="live-indicator">
+          <span />
+          LIVE
+        </span>
+      </div>
+      <div className="audit-list">
+        {auditLogs.length ? (
+          auditLogs.slice(0, 7).map((entry) => {
+            const rejected =
+              (entry.policyDecision || '').toLowerCase() === 'rejected'
+            return (
+              <article className="audit-entry" key={entry._id}>
+                <span
+                  className={`audit-entry-icon ${rejected ? 'is-rejected' : ''}`}
+                >
+                  {rejected ? (
+                    <ArrowDownRight size={16} />
+                  ) : (
+                    <ArrowUpRight size={16} />
+                  )}
+                </span>
+                <div className="audit-entry-main">
+                  <div className="audit-entry-title">
+                    <strong>{entry.studentId}</strong>
+                    <span className={rejected ? 'text-danger' : 'text-success'}>
+                      {entry.policyDecision || 'REVIEW'}
+                    </span>
+                  </div>
+                  <div className="audit-entry-meta">
+                    <span>
+                      {formatDate(entry.timestamp, {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                      })}
+                    </span>
+                    <span className="audit-amount">
+                      {formatCurrency(entry.amount, currency)}
+                    </span>
+                  </div>
+                  {entry.txHash ? (
+                    <a
+                      className="audit-hash"
+                      href={`https://testnet.xrpl.org/transactions/${entry.txHash}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      aria-label={`Open XRPL transaction ${entry.txHash} in a new tab`}
+                      title={entry.txHash}
+                    >
+                      {compactHash(entry.txHash)}
+                      <ExternalLink size={12} />
+                    </a>
+                  ) : (
+                    <span className="audit-reason">
+                      {entry.rejectionReason || 'No ledger transaction'}
+                    </span>
+                  )}
+                </div>
+              </article>
+            )
+          })
+        ) : (
+          <div className="empty-state audit-empty">
+            Audit activity will appear here.
           </div>
         )}
+      </div>
+      <div className="audit-footer">
+        <span>
+          <FileCheck2 size={14} /> Immutable assurance trail
+        </span>
+        <span>Auto-refreshes every 30 sec</span>
+      </div>
+    </section>
+  )
+}
 
-        {isLoading ? (
-          <div style={{ textAlign: 'center', padding: '80px 20px', color: 'var(--text-dim)' }}>
-            <div className="font-display" style={{ fontSize: '1.3rem', fontWeight: '700', marginBottom: '8px', color: '#ffffff' }}>
-              Initializing FundFlow Enterprise Assurance Engine...
+function AdminDashboard({
+  programmes,
+  beneficiaries,
+  schedules,
+  auditLogs,
+  isLoading,
+  isRefreshing,
+  isTriggering,
+  triggerResult,
+  triggerError,
+  policyTestResult,
+  capOverrides,
+  onCapChange,
+  whitelistOverrides,
+  onWhitelistChange,
+  killSwitchActive,
+  onToggleKillSwitch,
+  isTogglingKillSwitch,
+  killSwitchError,
+  dashboardError,
+  lastUpdated,
+  onRefresh,
+  onTrigger,
+  onTestPolicyBlock,
+}) {
+  const programme = programmes[0]
+  const currency = programme?.currency || 'XRP'
+  const activeWhitelistedCount = beneficiaries.filter((student) =>
+    isWalletApproved(student, whitelistOverrides),
+  ).length
+  const blockedCount = auditLogs.filter(
+    (entry) => (entry.policyDecision || '').toUpperCase() === 'REJECTED',
+  ).length
+  const vaultCurrencies = [
+    ...new Set(programmes.map((item) => item.currency || 'XRP')),
+  ].join(' / ')
+
+  return (
+    <main className="main-content">
+      <PageHeader
+        eyebrow="FUNDING ASSURANCE / ADMIN"
+        title="Disbursement control"
+        description="Monitor mandates, scheduled payments, and ledger assurance in one place."
+        actions={
+          <>
+            <span className="updated-label">
+              <Clock3 size={14} />
+              Updated {formatDate(lastUpdated, { hour: '2-digit', minute: '2-digit' })}
+            </span>
+            <button
+              className="button button-secondary"
+              onClick={onRefresh}
+              disabled={isRefreshing}
+            >
+              <RefreshCw className={isRefreshing ? 'spin' : ''} size={16} />
+              Refresh
+            </button>
+          </>
+        }
+      />
+
+      {dashboardError && (
+        <div className="notice notice-error" role="status">
+          <CircleAlert size={17} />
+          <span>{dashboardError}</span>
+        </div>
+      )}
+
+      <div className="metrics-grid">
+        <MetricCard
+          label="Total Programme Vault"
+          value={programmes.length ? formatProgrammeVault(programmes) : '—'}
+          detail={
+            programmes.length
+              ? `${programmes.length} programme mandate${programmes.length === 1 ? '' : 's'} · ${vaultCurrencies}`
+              : 'No active programme'
+          }
+          icon={Wallet}
+          tone="blue"
+        />
+        <MetricCard
+          label="Active Whitelisted Students"
+          value={activeWhitelistedCount}
+          detail="Wallets approved for disbursement"
+          icon={Users}
+          tone="violet"
+        />
+        <MetricCard
+          label="Fraud / Duplicates Blocked"
+          value={blockedCount}
+          detail="Rejected before ledger submission"
+          icon={ShieldAlert}
+          tone="red"
+        />
+        <MetricCard
+          label="Avg Settlement Time"
+          value="3.4s"
+          detail="Across approved settlements"
+          icon={Clock3}
+          tone="mint"
+        />
+      </div>
+
+      <PipelineBanner
+        isBlocked={blockedCount > 0}
+        blockedCount={blockedCount}
+      />
+
+      <div className="overview-grid">
+        <ProgrammeCard programme={programme} isPaused={killSwitchActive} />
+        <AgentCard
+          isRunning={isTriggering}
+          triggerResult={triggerResult}
+          onTrigger={onTrigger}
+          onTestPolicyBlock={onTestPolicyBlock}
+          policyTestResult={policyTestResult}
+          isKillSwitchActive={killSwitchActive}
+          error={triggerError}
+        />
+      </div>
+
+      <PolicyControls
+        beneficiaries={beneficiaries}
+        capOverrides={capOverrides}
+        onCapChange={onCapChange}
+        whitelistOverrides={whitelistOverrides}
+        onWhitelistChange={onWhitelistChange}
+        currency={currency}
+        killSwitchActive={killSwitchActive}
+        onToggleKillSwitch={onToggleKillSwitch}
+        isTogglingKillSwitch={isTogglingKillSwitch}
+        killSwitchError={killSwitchError}
+      />
+
+      <div className="operations-grid">
+        <ScheduleTable
+          schedules={schedules}
+          beneficiaries={beneficiaries}
+          currency={currency}
+          killSwitchActive={killSwitchActive}
+          whitelistOverrides={whitelistOverrides}
+        />
+        <AuditPanel auditLogs={auditLogs} currency={currency} />
+      </div>
+
+      {isLoading && (
+        <div className="loading-indicator">
+          <LoaderCircle className="spin" size={16} />
+          Loading funding data…
+        </div>
+      )}
+    </main>
+  )
+}
+
+function StudentPortal({ beneficiaries, isLoadingBeneficiaries }) {
+  const [selectedStudentId, setSelectedStudentId] = useState('')
+  const studentId = selectedStudentId || beneficiaries[0]?.studentId || ''
+  const [studentResult, setStudentResult] = useState({
+    studentId: '',
+    data: null,
+    error: '',
+  })
+  const [walletCopyState, setWalletCopyState] = useState('idle')
+  const [walletCopyError, setWalletCopyError] = useState('')
+
+  useEffect(() => {
+    if (!studentId) return undefined
+
+    let active = true
+    getStudentStatus(studentId)
+      .then((response) => {
+        if (active) {
+          setStudentResult({
+            studentId,
+            data: response,
+            error: '',
+          })
+        }
+      })
+      .catch((requestError) => {
+        if (active) {
+          setStudentResult({
+            studentId,
+            data: null,
+            error: requestError.message,
+          })
+        }
+      })
+
+    return () => {
+      active = false
+    }
+  }, [studentId])
+
+  async function handleCopyWallet(address) {
+    if (!address) return
+    if (!navigator.clipboard?.writeText) {
+      setWalletCopyState('error')
+      setWalletCopyError('Clipboard access is unavailable in this browser.')
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(address)
+      setWalletCopyState('copied')
+      setWalletCopyError('')
+    } catch (copyError) {
+      setWalletCopyState('error')
+      const reason =
+        copyError instanceof Error ? copyError.message : 'Clipboard permission was denied.'
+      setWalletCopyError(`Unable to copy wallet address: ${reason}`)
+    }
+  }
+
+  const isLoading =
+    !!studentId && studentResult.studentId !== studentId
+  const student = studentResult.studentId === studentId ? studentResult.data : null
+  const error = studentResult.studentId === studentId ? studentResult.error : ''
+  const disbursements = student?.disbursements || []
+  const receivedDisbursements = disbursements
+    .filter(
+      (item) =>
+        item.txHash &&
+        ['VERIFIED', 'APPROVED_AND_EXECUTED', 'EXECUTED', 'SETTLED'].includes(
+          (item.status || '').toUpperCase(),
+        ),
+    )
+    .sort(
+      (first, second) =>
+        (Date.parse(second.timestamp || '') || 0) -
+        (Date.parse(first.timestamp || '') || 0),
+    )
+
+  return (
+    <main className="main-content">
+      <PageHeader
+        eyebrow="FUNDING ASSURANCE / BENEFICIARY"
+        title="Student portal"
+        description="A clear view of your funding, scheduled support, and verified ledger activity."
+        actions={
+          <label className="student-select-wrap">
+            <span className="sr-only">Select beneficiary</span>
+            <Users size={16} />
+            <select
+              value={studentId}
+              onChange={(event) => {
+                setSelectedStudentId(event.target.value)
+                setWalletCopyState('idle')
+                setWalletCopyError('')
+              }}
+              disabled={isLoadingBeneficiaries || !beneficiaries.length}
+            >
+              {!beneficiaries.length && <option value="">No beneficiaries</option>}
+              {beneficiaries.map((beneficiary) => (
+                <option key={beneficiary.studentId} value={beneficiary.studentId}>
+                  {beneficiary.fullName}
+                </option>
+              ))}
+            </select>
+            <ChevronDown size={15} />
+          </label>
+        }
+      />
+
+      {error && (
+        <div className="notice notice-error" role="status">
+          <CircleAlert size={17} />
+          <span>{error}</span>
+        </div>
+      )}
+
+      {isLoading || isLoadingBeneficiaries ? (
+        <div className="portal-loading">
+          <LoaderCircle className="spin" size={20} />
+          Loading beneficiary details…
+        </div>
+      ) : student ? (
+        <>
+          <section className="bursary-card" aria-label="Digital bursary card">
+            <div className="bursary-card-pattern" aria-hidden="true" />
+            <div className="bursary-card-top">
+              <div className="bursary-brand">
+                <span className="bursary-brand-mark">
+                  <Waves size={19} />
+                </span>
+                <span>
+                  <strong>FundFlow</strong>
+                  <small>STUDENT BURSARY</small>
+                </span>
+              </div>
+              <StatusBadge status={student.status || 'ACTIVE'} />
             </div>
-            <p style={{ fontSize: '0.85rem' }}>Synchronizing policy mandates and XRP Ledger state.</p>
+
+            <div className="bursary-card-balance">
+              <span className="bursary-balance-label">MONTHLY BURSARY ALLOWANCE</span>
+              <strong className="bursary-balance-zar">
+                {formatCurrency(student.monthlyAllowance, 'ZAR', 2)}
+              </strong>
+              <span className="bursary-balance-rlusd">
+                ≈ {formatCurrency(
+                  (Number(student.monthlyAllowance) || 0) / ZAR_PER_RLUSD,
+                  'RLUSD',
+                  2,
+                )}
+              </span>
+              <small className="bursary-rate-note">
+                Indicative demo rate · 1 RLUSD = R18.00
+              </small>
+            </div>
+
+            <div className="bursary-card-footer">
+              <div className="bursary-card-owner">
+                <small>BENEFICIARY</small>
+                <strong>{student.fullName}</strong>
+                <span>{student.institution}</span>
+                <span className="bursary-student-id">{student.studentId}</span>
+              </div>
+              <div className="bursary-card-wallet">
+                <small>XRPL WALLET</small>
+                <div className="bursary-wallet-row">
+                  <strong title={student.walletAddress || undefined}>
+                    {truncateWallet(student.walletAddress) || 'Wallet not registered'}
+                  </strong>
+                  <button
+                    className="wallet-copy-button"
+                    type="button"
+                    disabled={!student.walletAddress}
+                    onClick={() => handleCopyWallet(student.walletAddress)}
+                    aria-label={
+                      walletCopyState === 'copied'
+                        ? 'Wallet address copied'
+                        : 'Copy full XRPL wallet address'
+                    }
+                    title="Copy full wallet address"
+                  >
+                    {walletCopyState === 'copied' ? (
+                      <Check size={14} />
+                    ) : (
+                      <Copy size={14} />
+                    )}
+                    {walletCopyState === 'copied' ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                {walletCopyError && (
+                  <span className="wallet-copy-error" role="alert">
+                    {walletCopyError}
+                  </span>
+                )}
+              </div>
+              <div className="middleman-fee-badge">
+                <BadgeCheck size={17} />
+                <span>
+                  <strong>R0.00 Middleman Fee</strong>
+                  <small>VERIFIED · NO DEDUCTIONS</small>
+                </span>
+              </div>
+            </div>
+          </section>
+
+          <section className="panel student-disbursements">
+            <div className="panel-heading">
+              <div>
+                <div className="eyebrow">XRPL PAYMENT ASSURANCE</div>
+                <h2>Received disbursements</h2>
+              </div>
+              <span className="panel-count">
+                {receivedDisbursements.length}{' '}
+                {receivedDisbursements.length === 1 ? 'payment' : 'payments'}
+              </span>
+            </div>
+            {receivedDisbursements.length ? (
+              <ol className="disbursement-timeline">
+                {receivedDisbursements.map((disbursement) => (
+                  <li className="disbursement-timeline-item" key={disbursement.scheduleId}>
+                    <span className="timeline-marker" aria-hidden="true">
+                      <Check size={13} />
+                    </span>
+                    <div className="timeline-entry">
+                      <div className="timeline-entry-main">
+                        <div>
+                          <strong>{disbursement.month || 'Bursary received'}</strong>
+                          <span>
+                            {formatDate(disbursement.timestamp, {
+                              dateStyle: 'medium',
+                              timeStyle: 'short',
+                            })}
+                          </span>
+                        </div>
+                        <div className="timeline-amount">
+                          <strong>{formatCurrency(disbursement.amount, 'ZAR', 2)}</strong>
+                          <span>
+                            ≈ {formatCurrency(
+                              (Number(disbursement.amount) || 0) / ZAR_PER_RLUSD,
+                              'RLUSD',
+                              2,
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="timeline-entry-footer">
+                        <span className="mono-cell">{disbursement.scheduleId}</span>
+                        <a
+                          className="ledger-link"
+                          href={
+                            disbursement.xrplExplorerUrl ||
+                            `https://testnet.xrpl.org/transactions/${disbursement.txHash}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={disbursement.txHash}
+                        >
+                          View XRPL receipt <ExternalLink size={13} />
+                        </a>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
+            ) : (
+              <div className="timeline-empty">
+                <span className="timeline-empty-icon">
+                  <Clock3 size={18} />
+                </span>
+                <span>
+                  <strong>No received disbursements yet</strong>
+                  <small>Verified XRPL receipts will appear here after settlement.</small>
+                </span>
+              </div>
+            )}
+            <div className="student-assurance-note">
+              <ShieldCheck size={17} />
+              <span>
+                Every received payment is independently verified on the XRPL Testnet ledger.
+              </span>
+            </div>
+          </section>
+        </>
+      ) : (
+        <section className="panel portal-empty">
+          <span className="empty-icon">
+            <UserRound size={24} />
+          </span>
+          <h2>Beneficiary account unavailable</h2>
+          <p>
+            {beneficiaries.length
+              ? 'Select a student account to view funding details.'
+              : 'Beneficiary records will appear here when available.'}
+          </p>
+        </section>
+      )}
+    </main>
+  )
+}
+
+function App() {
+  const [activeView, setActiveView] = useState('admin')
+  const [programmes, setProgrammes] = useState([])
+  const [beneficiaries, setBeneficiaries] = useState([])
+  const [schedules, setSchedules] = useState([])
+  const [auditLogs, setAuditLogs] = useState([])
+  const [triggerLogs, setTriggerLogs] = useState([])
+  const [triggerResult, setTriggerResult] = useState(null)
+  const [triggerError, setTriggerError] = useState('')
+  const [policyTestResult, setPolicyTestResult] = useState(null)
+  const [capOverrides, setCapOverrides] = useState({})
+  const [whitelistOverrides, setWhitelistOverrides] = useState({})
+  const [killSwitchOverride, setKillSwitchOverride] = useState(null)
+  const [isTogglingKillSwitch, setIsTogglingKillSwitch] = useState(false)
+  const [killSwitchError, setKillSwitchError] = useState('')
+  const [dashboardError, setDashboardError] = useState('')
+  const [isLoading, setIsLoading] = useState(true)
+  const [isRefreshing, setIsRefreshing] = useState(false)
+  const [isTriggering, setIsTriggering] = useState(false)
+  const [lastUpdated, setLastUpdated] = useState(null)
+  const apiMode = useSyncExternalStore(
+    subscribeToApiMode,
+    getApiMode,
+    getApiMode,
+  )
+
+  const applyDashboardResults = useCallback((results) => {
+    const errors = []
+    const setters = [
+      [null, 'health status'],
+      [setProgrammes, 'programmes'],
+      [setBeneficiaries, 'beneficiaries'],
+      [setSchedules, 'schedules'],
+      [setAuditLogs, 'audit logs'],
+    ]
+
+    results.forEach((result, index) => {
+      if (result.status === 'fulfilled') {
+        if (setters[index][0]) setters[index][0](result.value)
+      } else {
+        errors.push(`${setters[index][1]}: ${result.reason.message}`)
+      }
+    })
+
+    setDashboardError(errors.join(' · '))
+    setLastUpdated(new Date())
+    setIsLoading(false)
+    setIsRefreshing(false)
+  }, [])
+
+  const refreshDashboard = useCallback(
+    async (showSpinner = true) => {
+      if (showSpinner) setIsRefreshing(true)
+      const results = await fetchDashboardData()
+      applyDashboardResults(results)
+    },
+    [applyDashboardResults],
+  )
+
+  const refreshAudit = useCallback(async () => {
+    try {
+      setAuditLogs(await getAuditLogs())
+      setLastUpdated(new Date())
+    } catch (error) {
+      setDashboardError((current) =>
+        current ? current : `Audit logs: ${error.message}`,
+      )
+    }
+  }, [])
+
+  useEffect(() => {
+    fetchDashboardData().then(applyDashboardResults)
+    const intervalId = window.setInterval(refreshAudit, REFRESH_INTERVAL)
+    return () => window.clearInterval(intervalId)
+  }, [applyDashboardResults, refreshAudit])
+
+  const visibleAuditLogs = useMemo(() => {
+    const combined = [...triggerLogs, ...auditLogs]
+    return combined.filter(
+      (entry, index) =>
+        combined.findIndex((candidate) => candidate._id === entry._id) === index,
+    )
+  }, [auditLogs, triggerLogs])
+
+  const killSwitchActive =
+    killSwitchOverride ?? Boolean(programmes[0]?.isPaused)
+  const connectionStatus = {
+    CONNECTING: { label: 'CONNECTING TO API', className: 'is-connecting' },
+    LIVE: { label: 'LIVE EXPRESS API', className: 'is-online' },
+    MOCK: { label: 'MOCK DEMO MODE', className: 'is-mock' },
+    OFFLINE: { label: 'API OFFLINE', className: 'is-offline' },
+  }[apiMode]
+
+  function handleCapChange(studentId, value) {
+    setCapOverrides((current) => ({ ...current, [studentId]: value }))
+  }
+
+  function handleWhitelistChange(studentId, isApproved) {
+    setWhitelistOverrides((current) => ({
+      ...current,
+      [studentId]: isApproved,
+    }))
+  }
+
+  async function handleToggleKillSwitch() {
+    const programme = programmes[0]
+    if (!programme?._id) {
+      setKillSwitchError('No programme is available to pause.')
+      return
+    }
+
+    setIsTogglingKillSwitch(true)
+    setKillSwitchError('')
+    try {
+      const result = await toggleProgrammePause(
+        programme._id,
+        programme.programmeId,
+        killSwitchActive,
+      )
+      setKillSwitchOverride(Boolean(result.isPaused))
+    } catch (error) {
+      setKillSwitchError(error.message)
+    } finally {
+      setIsTogglingKillSwitch(false)
+    }
+  }
+
+  function handleSimulatePolicyViolation() {
+    const overLimitSchedule = schedules.find((schedule) => {
+      const student = beneficiaries.find(
+        (beneficiary) => beneficiary.studentId === schedule.studentId,
+      )
+      return student
+        ? Number(schedule.amount) > getStudentCap(student, capOverrides)
+        : false
+    })
+    const schedule = overLimitSchedule || schedules[0]
+    const student =
+      beneficiaries.find(
+        (beneficiary) => beneficiary.studentId === schedule?.studentId,
+      ) || beneficiaries[0]
+
+    if (!student) {
+      setTriggerError('A beneficiary is required to run the policy demo.')
+      return
+    }
+
+    const cap = getStudentCap(student, capOverrides)
+    const attemptedAmount = overLimitSchedule
+      ? Number(schedule.amount)
+      : cap + Math.max(1, Math.ceil(cap * 0.1))
+    const eventId = `policy-test-${Date.now()}`
+    const event = {
+      _id: eventId,
+      timestamp: new Date().toISOString(),
+      eventType: 'POLICY_VIOLATION_SIMULATION',
+      studentId: student.studentId,
+      programmeId:
+        programmes[0]?.programmeId || student.programmeId || 'DEMO-PROGRAMME',
+      amount: attemptedAmount,
+      policyDecision: 'REJECTED',
+      rejectionReason: 'ERR_EXCEEDS_STUDENT_ALLOWANCE_CAP',
+      txHash: null,
+      ledgerResult: null,
+    }
+
+    setTriggerError('')
+    setPolicyTestResult({
+      studentId: student.studentId,
+      scheduleId: schedule?.scheduleId || 'DEMO-OVER-LIMIT',
+      amount: attemptedAmount,
+      cap,
+      reason: event.rejectionReason,
+    })
+    setTriggerLogs((current) => [event, ...current])
+  }
+
+  async function handleAgentTrigger() {
+    if (killSwitchActive) return
+    setIsTriggering(true)
+    setTriggerError('')
+    try {
+      const result = await triggerAgent()
+      const processed = Array.isArray(result.processed) ? result.processed : []
+      setTriggerResult(result)
+      setSchedules((current) =>
+        current.map((schedule) => {
+          const outcome = processed.find(
+            (item) => item.scheduleId === schedule.scheduleId,
+          )
+          if (!outcome) return schedule
+          return {
+            ...schedule,
+            status:
+              outcome.status === 'APPROVED_AND_EXECUTED'
+                ? 'EXECUTED'
+                : outcome.status === 'REJECTED_BY_POLICY'
+                  ? 'REJECTED'
+                  : outcome.status,
+          }
+        }),
+      )
+      setTriggerLogs((current) => [
+        ...processed.map((item) => ({
+          _id: `${result.cycleId}-${item.scheduleId}`,
+          timestamp: new Date().toISOString(),
+          eventType: 'DISBURSEMENT_ATTEMPT',
+          studentId: item.studentId,
+          programmeId:
+            programmes[0]?.programmeId || 'PRG-WE-THINK-CODE-2026',
+          amount: item.amount,
+          policyDecision: item.status.includes('REJECTED')
+            ? 'REJECTED'
+            : 'APPROVED',
+          rejectionReason: item.reason || null,
+          txHash: item.txHash || null,
+          ledgerResult: item.txHash ? 'tesSUCCESS' : null,
+        })),
+        ...current,
+      ])
+    } catch (error) {
+      setTriggerError(error.message)
+    } finally {
+      setIsTriggering(false)
+    }
+  }
+
+  return (
+    <div className="app-shell">
+      <div className="workspace">
+        <div className="topbar">
+          <div className="topbar-brand">
+            <span className="topbar-brand-mark" aria-hidden="true">
+              <Waves size={21} strokeWidth={2.2} />
+            </span>
+            <span className="topbar-brand-copy">
+              <strong>FundFlow</strong>
+              <span>Every approved rand. Accounted for.</span>
+            </span>
           </div>
-        ) : activeTab === 'admin' ? (
+          <nav className="view-switcher" aria-label="Workspace navigation">
+            <button
+              className={`view-switcher-button ${activeView === 'admin' ? 'active' : ''}`}
+              type="button"
+              aria-current={activeView === 'admin' ? 'page' : undefined}
+              onClick={() => setActiveView('admin')}
+            >
+              <LayoutDashboard size={15} />
+              CFO Admin Console
+            </button>
+            <button
+              className={`view-switcher-button ${activeView === 'analytics' ? 'active' : ''}`}
+              type="button"
+              aria-current={activeView === 'analytics' ? 'page' : undefined}
+              onClick={() => setActiveView('analytics')}
+            >
+              <TrendingUp size={15} />
+              Treasury &amp; Savings
+            </button>
+            <button
+              className={`view-switcher-button ${activeView === 'auditor' ? 'active' : ''}`}
+              type="button"
+              aria-current={activeView === 'auditor' ? 'page' : undefined}
+              onClick={() => setActiveView('auditor')}
+            >
+              <FileCheck2 size={15} />
+              Auditor-General Hub
+            </button>
+            <button
+              className={`view-switcher-button ${activeView === 'student' ? 'active' : ''}`}
+              type="button"
+              aria-current={activeView === 'student' ? 'page' : undefined}
+              onClick={() => setActiveView('student')}
+            >
+              <UserRound size={15} />
+              Student Portal
+            </button>
+          </nav>
+          <div className="topbar-actions">
+            <span
+              className="xrpl-status-pill"
+              role="status"
+              title="Demo status indicator; the backend does not expose a separate XRPL connection health signal."
+            >
+              <span className="xrpl-status-dot" />
+              XRPL Testnet Connected
+            </span>
+            <span
+              className={`environment-pill ${connectionStatus.className}`}
+              role="status"
+              aria-live="polite"
+              title="Connection mode reflects live API responses and mock fallbacks."
+            >
+              <span />
+              {connectionStatus.label}
+            </span>
+            <button
+              className={`header-kill-switch ${killSwitchActive ? 'engaged' : ''}`}
+              type="button"
+              role="switch"
+              aria-checked={killSwitchActive}
+              aria-label="Emergency Agent Kill-Switch"
+              aria-busy={isTogglingKillSwitch}
+              disabled={isTogglingKillSwitch || !programmes[0]?._id}
+              onClick={handleToggleKillSwitch}
+              title={
+                killSwitchError ||
+                (!programmes[0]?._id
+                  ? 'Emergency kill-switch unavailable: no programme is available to pause.'
+                  : 'Emergency stop for scheduled agent runs. This also appears in Policy & Mandate Controls.')
+              }
+            >
+              <Power size={16} aria-hidden="true" />
+              <span className="header-kill-copy">
+                <strong>Emergency Kill-Switch</strong>
+                <small>
+                  {isTogglingKillSwitch
+                    ? 'UPDATING…'
+                    : killSwitchActive
+                      ? 'ENGAGED · RUNS HALTED'
+                      : 'OFF · RUNS ENABLED'}
+                </small>
+              </span>
+              <span className="header-kill-track" aria-hidden="true">
+                <span />
+              </span>
+            </button>
+            {killSwitchError && activeView === 'student' && (
+              <span className="header-kill-error" role="alert">
+                {killSwitchError}
+              </span>
+            )}
+          </div>
+        </div>
+
+        {activeView === 'admin' ? (
           <AdminDashboard
-            programme={programme}
             programmes={programmes}
-            onSelectProgramme={handleSelectProgramme}
             beneficiaries={beneficiaries}
             schedules={schedules}
-            auditLogs={auditLogs}
-            auditSummary={auditSummary}
-            onActionSuccess={() => loadAllData(true)}
+            auditLogs={visibleAuditLogs}
+            isLoading={isLoading}
+            isRefreshing={isRefreshing}
+            isTriggering={isTriggering}
+            triggerResult={triggerResult}
+            triggerError={triggerError}
+            policyTestResult={policyTestResult}
+            capOverrides={capOverrides}
+            onCapChange={handleCapChange}
+            whitelistOverrides={whitelistOverrides}
+            onWhitelistChange={handleWhitelistChange}
+            killSwitchActive={killSwitchActive}
+            onToggleKillSwitch={handleToggleKillSwitch}
+            isTogglingKillSwitch={isTogglingKillSwitch}
+            killSwitchError={killSwitchError}
+            dashboardError={dashboardError}
+            lastUpdated={lastUpdated}
+            onRefresh={() => refreshDashboard(true)}
+            onTrigger={handleAgentTrigger}
+            onTestPolicyBlock={handleSimulatePolicyViolation}
           />
-        ) : activeTab === 'analytics' ? (
+        ) : activeView === 'analytics' ? (
           <AnalyticsDashboard />
-        ) : activeTab === 'auditor' ? (
-          <AuditorPortal
-            auditLogs={auditLogs}
-          />
+        ) : activeView === 'auditor' ? (
+          <AuditorPortal auditLogs={visibleAuditLogs} />
         ) : (
           <StudentPortal
             beneficiaries={beneficiaries}
+            isLoadingBeneficiaries={isLoading}
           />
         )}
-      </main>
 
-      {/* Production Footer */}
-      <footer style={{
-        borderTop: '1px solid var(--border-color)',
-        padding: '28px 0',
-        marginTop: '60px',
-        backgroundColor: '#040406',
-        fontSize: '0.8rem',
-        color: 'var(--text-dim)'
-      }}>
-        <div className="container" style={{ display: 'flex', flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between', gap: '12px', paddingBottom: 0 }}>
-          <div>
-            <strong className="font-display" style={{ color: '#ffffff' }}>FundFlow</strong> — AI-Powered Student Funding Disbursement & Assurance Platform
-          </div>
-          <div>
-            Engineered for W3Node 2026 • Agentic Finance Track (Sponsored by Ripple)
-          </div>
-        </div>
-      </footer>
+        <footer className="app-footer">
+          <span>FundFlow · Every approved rand. Accounted for.</span>
+          <span>
+            <span className="footer-ledger-dot" />
+            XRPL Testnet
+          </span>
+        </footer>
+      </div>
     </div>
-  );
+  )
 }
+
+export default App
