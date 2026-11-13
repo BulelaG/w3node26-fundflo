@@ -4,8 +4,16 @@
   "description": "FundFlow - AI-Powered Student Funding Disbursement and Assurance Platform",
   "private": true,
   "scripts": {
+    "build": "cd client && npm install && npm run build",
     "server": "cd server && npm run dev",
     "client": "cd client && npm run dev",
     "docs:pdf": "python docs/build_team_pdf.py"
+  },
+  "dependencies": {
+    "cors": "^2.8.5",
+    "dotenv": "^16.4.5",
+    "express": "^4.21.1",
+    "mongoose": "^8.8.1",
+    "xrpl": "^3.0.0"
   }
 }
