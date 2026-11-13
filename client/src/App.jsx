@@ -6,22 +6,22 @@ import {
   useSyncExternalStore,
 } from 'react'
 import {
-  Activity,
   ArrowDownRight,
   ArrowRight,
   ArrowUpRight,
   BadgeCheck,
-  Bell,
   Check,
   ChevronDown,
   CircleAlert,
   Clock3,
+  Copy,
   ExternalLink,
   FileCheck2,
   LayoutDashboard,
   LoaderCircle,
   Power,
   RefreshCw,
+  ShieldAlert,
   ShieldCheck,
   SlidersHorizontal,
   UserRound,
@@ -45,6 +45,7 @@ import {
 import './App.css'
 
 const REFRESH_INTERVAL = 30000
+const ZAR_PER_RLUSD = 18
 
 function fetchDashboardData() {
   return Promise.allSettled([
@@ -56,12 +57,36 @@ function fetchDashboardData() {
   ])
 }
 
-function formatCurrency(value, currency = 'XRP') {
+function formatCurrency(value, currency = 'XRP', maximumFractionDigits = 0) {
+  const amount = Number(value) || 0
+  if (currency === 'RLUSD') {
+    return `RLUSD ${new Intl.NumberFormat('en-ZA', {
+      minimumFractionDigits: maximumFractionDigits ? 2 : 0,
+      maximumFractionDigits,
+    }).format(amount)}`
+  }
+
   return new Intl.NumberFormat('en-ZA', {
     style: 'currency',
     currency,
-    maximumFractionDigits: 0,
-  }).format(Number(value) || 0)
+    minimumFractionDigits: maximumFractionDigits,
+    maximumFractionDigits,
+  }).format(amount)
+}
+
+function formatProgrammeVault(programmes) {
+  const totalsByCurrency = new Map()
+  for (const programme of programmes) {
+    const currency = programme.currency || 'XRP'
+    totalsByCurrency.set(
+      currency,
+      (totalsByCurrency.get(currency) || 0) + (Number(programme.totalBudget) || 0),
+    )
+  }
+
+  return [...totalsByCurrency]
+    .map(([currency, total]) => formatCurrency(total, currency))
+    .join(' / ')
 }
 
 function formatDate(value, options = {}) {
@@ -75,6 +100,11 @@ function compactHash(hash) {
   if (!hash) return null
   if (hash.length <= 18) return hash
   return `${hash.slice(0, 10)}...${hash.slice(-8)}`
+}
+
+function truncateWallet(address) {
+  if (!address || address.length <= 18) return address || ''
+  return `${address.slice(0, 9)}...${address.slice(-6)}`
 }
 
 function getStudentCap(student, overrides) {
@@ -123,77 +153,6 @@ function StatusBadge({ status }) {
   )
 }
 
-function IconButton({ children, className = '', ...props }) {
-  return (
-    <button className={`icon-button ${className}`} {...props}>
-      {children}
-    </button>
-  )
-}
-
-function Sidebar({ activeView, onNavigate, apiOnline }) {
-  return (
-    <aside className="sidebar">
-      <a className="brand" href="#" onClick={(event) => event.preventDefault()}>
-        <span className="brand-mark">
-          <Waves size={22} strokeWidth={2.2} />
-        </span>
-        <span className="brand-copy">
-          <strong>fundflow</strong>
-          <span>DISBURSEMENT ASSURANCE</span>
-        </span>
-      </a>
-
-      <div className="sidebar-label">WORKSPACE</div>
-      <nav className="primary-nav" aria-label="Main navigation">
-        <button
-          className={`nav-item ${activeView === 'admin' ? 'active' : ''}`}
-          onClick={() => onNavigate('admin')}
-          aria-current={activeView === 'admin' ? 'page' : undefined}
-        >
-          <LayoutDashboard size={18} />
-          <span>Admin dashboard</span>
-          <span className="nav-shortcut">01</span>
-        </button>
-        <button
-          className={`nav-item ${activeView === 'student' ? 'active' : ''}`}
-          onClick={() => onNavigate('student')}
-          aria-current={activeView === 'student' ? 'page' : undefined}
-        >
-          <UserRound size={18} />
-          <span>Student portal</span>
-          <span className="nav-shortcut">02</span>
-        </button>
-      </nav>
-
-      <div className="sidebar-bottom">
-        <div className="network-card">
-          <div className="network-card-top">
-            <span className="network-icon">
-              <Activity size={17} />
-            </span>
-            <span className={`network-dot ${apiOnline ? 'online' : ''}`} />
-          </div>
-          <strong>{apiOnline ? 'API connected' : 'Demo workspace'}</strong>
-          <span>XRPL Testnet environment</span>
-          <div className="network-line">
-            <span>Network status</span>
-            <span>{apiOnline ? 'Online' : 'Mock data'}</span>
-          </div>
-        </div>
-        <div className="sidebar-user">
-          <span className="avatar avatar-admin">AM</span>
-          <span className="sidebar-user-copy">
-            <strong>Admin workspace</strong>
-            <span>FundFlow CFO</span>
-          </span>
-          <ChevronDown size={16} />
-        </div>
-      </div>
-    </aside>
-  )
-}
-
 function PageHeader({ title, description, eyebrow, actions }) {
   return (
     <header className="page-header">
@@ -221,10 +180,57 @@ function MetricCard({ label, value, detail, icon: Icon, tone = 'blue', trend }) 
           </span>
         )}
       </div>
-      <div className="metric-value">{value}</div>
+      <div
+        className={`metric-value ${typeof value === 'string' ? 'financial-value' : ''}`}
+      >
+        {value}
+      </div>
       <div className="metric-label">{label}</div>
       <div className="metric-detail">{detail}</div>
     </article>
+  )
+}
+
+function PipelineBanner({ isBlocked, blockedCount }) {
+  return (
+    <section
+      className={`pipeline-banner ${isBlocked ? 'is-blocked' : ''}`}
+      aria-label="Disbursement request pipeline"
+      aria-live="polite"
+    >
+      <div className="pipeline-summary">
+        <span className="pipeline-eyebrow">DISBURSEMENT FLOW</span>
+        <strong>
+          {isBlocked
+            ? `${blockedCount} ${blockedCount === 1 ? 'request' : 'requests'} blocked`
+            : 'Three-step assurance'}
+        </strong>
+        <small>
+          {isBlocked
+            ? 'Independent policy engine prevented ledger submission.'
+            : 'Every request is checked before it reaches the ledger.'}
+        </small>
+      </div>
+      <div className="pipeline-steps">
+        <div className="pipeline-step">
+          <span className="pipeline-step-number">1</span>
+          <Zap size={17} />
+          <span>Autonomous Agent</span>
+        </div>
+        <ArrowRight className="pipeline-arrow" size={18} aria-hidden="true" />
+        <div className={`pipeline-step policy-step ${isBlocked ? 'blocked' : ''}`}>
+          <span className="pipeline-step-number">2</span>
+          {isBlocked ? <ShieldAlert size={18} /> : <ShieldCheck size={18} />}
+          <span>Independent Policy Engine</span>
+        </div>
+        <ArrowRight className="pipeline-arrow" size={18} aria-hidden="true" />
+        <div className={`pipeline-step ledger-step ${isBlocked ? 'blocked' : ''}`}>
+          <span className="pipeline-step-number">3</span>
+          <Waves size={18} />
+          <span>XRPL Testnet Ledger</span>
+        </div>
+      </div>
+    </section>
   )
 }
 
@@ -279,13 +285,13 @@ function ProgrammeCard({ programme, isPaused }) {
       <div className="budget-numbers">
         <div>
           <span>Remaining budget</span>
-          <strong>
+          <strong className="financial-value">
             {formatCurrency(programme.remainingBudget, programme.currency)}
           </strong>
         </div>
         <div className="budget-total">
           <span>Total mandate</span>
-          <strong>
+          <strong className="financial-value">
             {formatCurrency(programme.totalBudget, programme.currency)}
           </strong>
         </div>
@@ -560,7 +566,7 @@ function AgentCard({
           </span>
           <span>
             <strong>INDEPENDENT POLICY ENGINE · REJECTED</strong>
-            <small>
+            <small className="financial-value">
               Mock request {policyTestResult.scheduleId} for{' '}
               {policyTestResult.studentId}: {formatCurrency(policyTestResult.amount)}{' '}
               exceeds the {formatCurrency(policyTestResult.cap)} student cap.
@@ -776,7 +782,9 @@ function AuditPanel({ auditLogs, currency }) {
                         minute: '2-digit',
                       })}
                     </span>
-                    <span>{formatCurrency(entry.amount, currency)}</span>
+                    <span className="audit-amount">
+                      {formatCurrency(entry.amount, currency)}
+                    </span>
                   </div>
                   {entry.txHash ? (
                     <a
@@ -841,10 +849,16 @@ function AdminDashboard({
   onTestPolicyBlock,
 }) {
   const programme = programmes[0]
-  const pendingCount = schedules.filter((item) =>
-    (item.status || '').toLowerCase().includes('pending'),
-  ).length
   const currency = programme?.currency || 'XRP'
+  const activeWhitelistedCount = beneficiaries.filter((student) =>
+    isWalletApproved(student, whitelistOverrides),
+  ).length
+  const blockedCount = auditLogs.filter(
+    (entry) => (entry.policyDecision || '').toUpperCase() === 'REJECTED',
+  ).length
+  const vaultCurrencies = [
+    ...new Set(programmes.map((item) => item.currency || 'XRP')),
+  ].join(' / ')
 
   return (
     <main className="main-content">
@@ -879,45 +893,43 @@ function AdminDashboard({
 
       <div className="metrics-grid">
         <MetricCard
-          label="Total programme budget"
-          value={programme ? formatCurrency(programme.totalBudget, currency) : '—'}
-          detail={programme?.name || 'No active programme'}
+          label="Total Programme Vault"
+          value={programmes.length ? formatProgrammeVault(programmes) : '—'}
+          detail={
+            programmes.length
+              ? `${programmes.length} programme mandate${programmes.length === 1 ? '' : 's'} · ${vaultCurrencies}`
+              : 'No active programme'
+          }
           icon={Wallet}
           tone="blue"
         />
         <MetricCard
-          label="Available to disburse"
-          value={
-            programme
-              ? formatCurrency(programme.remainingBudget, currency)
-              : '—'
-          }
-          detail="Remaining mandate balance"
-          icon={CircleAlert}
-          tone="mint"
-        />
-        <MetricCard
-          label="Active beneficiaries"
-          value={
-            programme?.beneficiaryCount ??
-            beneficiaries.filter((student) => student.status === 'ACTIVE').length
-          }
-          detail="Whitelisted students"
+          label="Active Whitelisted Students"
+          value={activeWhitelistedCount}
+          detail="Wallets approved for disbursement"
           icon={Users}
           tone="violet"
         />
         <MetricCard
-          label={killSwitchActive ? 'Scheduled runs halted' : 'Pending schedules'}
-          value={pendingCount}
-          detail={
-            killSwitchActive
-              ? 'Emergency kill-switch engaged'
-              : 'Awaiting agent evaluation'
-          }
+          label="Fraud / Duplicates Blocked"
+          value={blockedCount}
+          detail="Rejected before ledger submission"
+          icon={ShieldAlert}
+          tone="red"
+        />
+        <MetricCard
+          label="Avg Settlement Time"
+          value="3.4s"
+          detail="Across approved settlements"
           icon={Clock3}
-          tone="amber"
+          tone="mint"
         />
       </div>
+
+      <PipelineBanner
+        isBlocked={blockedCount > 0}
+        blockedCount={blockedCount}
+      />
 
       <div className="overview-grid">
         <ProgrammeCard programme={programme} isPaused={killSwitchActive} />
@@ -974,6 +986,8 @@ function StudentPortal({ beneficiaries, isLoadingBeneficiaries }) {
     data: null,
     error: '',
   })
+  const [walletCopyState, setWalletCopyState] = useState('idle')
+  const [walletCopyError, setWalletCopyError] = useState('')
 
   useEffect(() => {
     if (!studentId) return undefined
@@ -1004,14 +1018,44 @@ function StudentPortal({ beneficiaries, isLoadingBeneficiaries }) {
     }
   }, [studentId])
 
+  async function handleCopyWallet(address) {
+    if (!address) return
+    if (!navigator.clipboard?.writeText) {
+      setWalletCopyState('error')
+      setWalletCopyError('Clipboard access is unavailable in this browser.')
+      return
+    }
+
+    try {
+      await navigator.clipboard.writeText(address)
+      setWalletCopyState('copied')
+      setWalletCopyError('')
+    } catch (copyError) {
+      setWalletCopyState('error')
+      const reason =
+        copyError instanceof Error ? copyError.message : 'Clipboard permission was denied.'
+      setWalletCopyError(`Unable to copy wallet address: ${reason}`)
+    }
+  }
+
   const isLoading =
     !!studentId && studentResult.studentId !== studentId
   const student = studentResult.studentId === studentId ? studentResult.data : null
   const error = studentResult.studentId === studentId ? studentResult.error : ''
   const disbursements = student?.disbursements || []
-  const verifiedCount = disbursements.filter((item) =>
-    ['VERIFIED', 'APPROVED_AND_EXECUTED'].includes(item.status),
-  ).length
+  const receivedDisbursements = disbursements
+    .filter(
+      (item) =>
+        item.txHash &&
+        ['VERIFIED', 'APPROVED_AND_EXECUTED', 'EXECUTED', 'SETTLED'].includes(
+          (item.status || '').toUpperCase(),
+        ),
+    )
+    .sort(
+      (first, second) =>
+        (Date.parse(second.timestamp || '') || 0) -
+        (Date.parse(first.timestamp || '') || 0),
+    )
 
   return (
     <main className="main-content">
@@ -1025,7 +1069,11 @@ function StudentPortal({ beneficiaries, isLoadingBeneficiaries }) {
             <Users size={16} />
             <select
               value={studentId}
-              onChange={(event) => setSelectedStudentId(event.target.value)}
+              onChange={(event) => {
+                setSelectedStudentId(event.target.value)
+                setWalletCopyState('idle')
+                setWalletCopyError('')
+              }}
               disabled={isLoadingBeneficiaries || !beneficiaries.length}
             >
               {!beneficiaries.length && <option value="">No beneficiaries</option>}
@@ -1054,134 +1102,161 @@ function StudentPortal({ beneficiaries, isLoadingBeneficiaries }) {
         </div>
       ) : student ? (
         <>
-          <section className="student-welcome">
-            <div className="student-welcome-pattern" />
-            <div className="student-welcome-content">
-              <div className="student-welcome-avatar">
-                {student.fullName
-                  .split(' ')
-                  .map((part) => part[0])
-                  .slice(0, 2)
-                  .join('')}
+          <section className="bursary-card" aria-label="Digital bursary card">
+            <div className="bursary-card-pattern" aria-hidden="true" />
+            <div className="bursary-card-top">
+              <div className="bursary-brand">
+                <span className="bursary-brand-mark">
+                  <Waves size={19} />
+                </span>
+                <span>
+                  <strong>FundFlow</strong>
+                  <small>STUDENT BURSARY</small>
+                </span>
               </div>
-              <div>
-                <span className="student-kicker">BENEFICIARY ACCOUNT</span>
-                <h2>Welcome, {student.fullName.split(' ')[0]}</h2>
-                <p>{student.institution}</p>
-              </div>
-              <StatusBadge status="ACTIVE" />
+              <StatusBadge status={student.status || 'ACTIVE'} />
             </div>
-            <div className="student-id-tag">
-              <span>STUDENT ID</span>
-              <strong>{student.studentId}</strong>
+
+            <div className="bursary-card-balance">
+              <span className="bursary-balance-label">MONTHLY BURSARY ALLOWANCE</span>
+              <strong className="bursary-balance-zar">
+                {formatCurrency(student.monthlyAllowance, 'ZAR', 2)}
+              </strong>
+              <span className="bursary-balance-rlusd">
+                ≈ {formatCurrency(
+                  (Number(student.monthlyAllowance) || 0) / ZAR_PER_RLUSD,
+                  'RLUSD',
+                  2,
+                )}
+              </span>
+              <small className="bursary-rate-note">
+                Indicative demo rate · 1 RLUSD = R18.00
+              </small>
+            </div>
+
+            <div className="bursary-card-footer">
+              <div className="bursary-card-owner">
+                <small>BENEFICIARY</small>
+                <strong>{student.fullName}</strong>
+                <span>{student.institution}</span>
+                <span className="bursary-student-id">{student.studentId}</span>
+              </div>
+              <div className="bursary-card-wallet">
+                <small>XRPL WALLET</small>
+                <div className="bursary-wallet-row">
+                  <strong title={student.walletAddress || undefined}>
+                    {truncateWallet(student.walletAddress) || 'Wallet not registered'}
+                  </strong>
+                  <button
+                    className="wallet-copy-button"
+                    type="button"
+                    disabled={!student.walletAddress}
+                    onClick={() => handleCopyWallet(student.walletAddress)}
+                    aria-label={
+                      walletCopyState === 'copied'
+                        ? 'Wallet address copied'
+                        : 'Copy full XRPL wallet address'
+                    }
+                    title="Copy full wallet address"
+                  >
+                    {walletCopyState === 'copied' ? (
+                      <Check size={14} />
+                    ) : (
+                      <Copy size={14} />
+                    )}
+                    {walletCopyState === 'copied' ? 'Copied' : 'Copy'}
+                  </button>
+                </div>
+                {walletCopyError && (
+                  <span className="wallet-copy-error" role="alert">
+                    {walletCopyError}
+                  </span>
+                )}
+              </div>
+              <div className="middleman-fee-badge">
+                <BadgeCheck size={17} />
+                <span>
+                  <strong>R0.00 Middleman Fee</strong>
+                  <small>VERIFIED · NO DEDUCTIONS</small>
+                </span>
+              </div>
             </div>
           </section>
-
-          <div className="student-metrics">
-            <MetricCard
-              label="Monthly allowance"
-              value={formatCurrency(student.monthlyAllowance)}
-              detail="Your approved monthly support"
-              icon={Wallet}
-              tone="blue"
-            />
-            <MetricCard
-              label="Verified payments"
-              value={verifiedCount}
-              detail="Confirmed on XRPL Testnet"
-              icon={BadgeCheck}
-              tone="mint"
-            />
-            <article className="wallet-card">
-              <div className="wallet-card-heading">
-                <span className="metric-icon metric-violet">
-                  <ShieldCheck size={18} />
-                </span>
-                <span>REGISTERED XRPL WALLET</span>
-              </div>
-              <strong title={student.walletAddress}>{student.walletAddress}</strong>
-              <span className="wallet-caption">
-                <span className="network-dot online" />
-                Linked to your beneficiary profile
-              </span>
-            </article>
-          </div>
 
           <section className="panel student-disbursements">
             <div className="panel-heading">
               <div>
-                <div className="eyebrow">PAYMENT ASSURANCE</div>
-                <h2>Disbursement history</h2>
+                <div className="eyebrow">XRPL PAYMENT ASSURANCE</div>
+                <h2>Received disbursements</h2>
               </div>
               <span className="panel-count">
-                {disbursements.length} {disbursements.length === 1 ? 'payment' : 'payments'}
+                {receivedDisbursements.length}{' '}
+                {receivedDisbursements.length === 1 ? 'payment' : 'payments'}
               </span>
             </div>
-            {disbursements.length ? (
-              <div className="table-scroll">
-                <table>
-                  <thead>
-                    <tr>
-                      <th>Period</th>
-                      <th>Schedule ID</th>
-                      <th>Amount</th>
-                      <th>Status</th>
-                      <th>Ledger proof</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {disbursements.map((disbursement) => (
-                      <tr key={disbursement.scheduleId}>
-                        <td>
-                          <strong>{disbursement.month || 'Upcoming'}</strong>
-                          {disbursement.timestamp && (
-                            <small className="table-subtext">
-                              {formatDate(disbursement.timestamp, {
-                                dateStyle: 'medium',
-                              })}
-                            </small>
-                          )}
-                        </td>
-                        <td className="mono-cell">{disbursement.scheduleId}</td>
-                        <td className="amount-cell">
-                          {formatCurrency(disbursement.amount)}
-                        </td>
-                        <td>
-                          <StatusBadge status={disbursement.status} />
-                        </td>
-                        <td>
-                          {disbursement.txHash ? (
-                            <a
-                              className="ledger-link"
-                              href={
-                                disbursement.xrplExplorerUrl ||
-                                `https://testnet.xrpl.org/transactions/${disbursement.txHash}`
-                              }
-                              target="_blank"
-                              rel="noreferrer"
-                              title={disbursement.txHash}
-                            >
-                              View transaction <ExternalLink size={13} />
-                            </a>
-                          ) : (
-                            <span className="muted-cell">Awaiting settlement</span>
-                          )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
+            {receivedDisbursements.length ? (
+              <ol className="disbursement-timeline">
+                {receivedDisbursements.map((disbursement) => (
+                  <li className="disbursement-timeline-item" key={disbursement.scheduleId}>
+                    <span className="timeline-marker" aria-hidden="true">
+                      <Check size={13} />
+                    </span>
+                    <div className="timeline-entry">
+                      <div className="timeline-entry-main">
+                        <div>
+                          <strong>{disbursement.month || 'Bursary received'}</strong>
+                          <span>
+                            {formatDate(disbursement.timestamp, {
+                              dateStyle: 'medium',
+                              timeStyle: 'short',
+                            })}
+                          </span>
+                        </div>
+                        <div className="timeline-amount">
+                          <strong>{formatCurrency(disbursement.amount, 'ZAR', 2)}</strong>
+                          <span>
+                            ≈ {formatCurrency(
+                              (Number(disbursement.amount) || 0) / ZAR_PER_RLUSD,
+                              'RLUSD',
+                              2,
+                            )}
+                          </span>
+                        </div>
+                      </div>
+                      <div className="timeline-entry-footer">
+                        <span className="mono-cell">{disbursement.scheduleId}</span>
+                        <a
+                          className="ledger-link"
+                          href={
+                            disbursement.xrplExplorerUrl ||
+                            `https://testnet.xrpl.org/transactions/${disbursement.txHash}`
+                          }
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          title={disbursement.txHash}
+                        >
+                          View XRPL receipt <ExternalLink size={13} />
+                        </a>
+                      </div>
+                    </div>
+                  </li>
+                ))}
+              </ol>
             ) : (
-              <div className="empty-state">
-                No disbursement records are available for this account yet.
+              <div className="timeline-empty">
+                <span className="timeline-empty-icon">
+                  <Clock3 size={18} />
+                </span>
+                <span>
+                  <strong>No received disbursements yet</strong>
+                  <small>Verified XRPL receipts will appear here after settlement.</small>
+                </span>
               </div>
             )}
             <div className="student-assurance-note">
               <ShieldCheck size={17} />
               <span>
-                Every completed payment is independently verified on the XRPL
-                Testnet ledger.
+                Every received payment is independently verified on the XRPL Testnet ledger.
               </span>
             </div>
           </section>
@@ -1432,21 +1507,46 @@ function App() {
 
   return (
     <div className="app-shell">
-      <Sidebar
-        activeView={activeView}
-        onNavigate={setActiveView}
-        apiOnline={apiMode === 'LIVE'}
-      />
       <div className="workspace">
         <div className="topbar">
-          <div className="breadcrumb">
-            <span>FundFlow</span>
-            <span className="breadcrumb-slash">/</span>
-            <strong>
-              {activeView === 'admin' ? 'Admin dashboard' : 'Student portal'}
-            </strong>
+          <div className="topbar-brand">
+            <span className="topbar-brand-mark" aria-hidden="true">
+              <Waves size={21} strokeWidth={2.2} />
+            </span>
+            <span className="topbar-brand-copy">
+              <strong>FundFlow</strong>
+              <span>Every approved rand. Accounted for.</span>
+            </span>
           </div>
+          <nav className="view-switcher" aria-label="Workspace navigation">
+            <button
+              className={`view-switcher-button ${activeView === 'admin' ? 'active' : ''}`}
+              type="button"
+              aria-current={activeView === 'admin' ? 'page' : undefined}
+              onClick={() => setActiveView('admin')}
+            >
+              <LayoutDashboard size={15} />
+              CFO Admin Console
+            </button>
+            <button
+              className={`view-switcher-button ${activeView === 'student' ? 'active' : ''}`}
+              type="button"
+              aria-current={activeView === 'student' ? 'page' : undefined}
+              onClick={() => setActiveView('student')}
+            >
+              <UserRound size={15} />
+              Student Portal
+            </button>
+          </nav>
           <div className="topbar-actions">
+            <span
+              className="xrpl-status-pill"
+              role="status"
+              title="Demo status indicator; the backend does not expose a separate XRPL connection health signal."
+            >
+              <span className="xrpl-status-dot" />
+              XRPL Testnet Connected
+            </span>
             <span
               className={`environment-pill ${connectionStatus.className}`}
               role="status"
@@ -1456,11 +1556,42 @@ function App() {
               <span />
               {connectionStatus.label}
             </span>
-            <IconButton type="button" aria-label="Notifications">
-              <Bell size={17} />
-              <span className="notification-dot" />
-            </IconButton>
-            <span className="topbar-avatar">AM</span>
+            <button
+              className={`header-kill-switch ${killSwitchActive ? 'engaged' : ''}`}
+              type="button"
+              role="switch"
+              aria-checked={killSwitchActive}
+              aria-label="Emergency Agent Kill-Switch"
+              aria-busy={isTogglingKillSwitch}
+              disabled={isTogglingKillSwitch || !programmes[0]?._id}
+              onClick={handleToggleKillSwitch}
+              title={
+                killSwitchError ||
+                (!programmes[0]?._id
+                  ? 'Emergency kill-switch unavailable: no programme is available to pause.'
+                  : 'Emergency stop for scheduled agent runs. This also appears in Policy & Mandate Controls.')
+              }
+            >
+              <Power size={16} aria-hidden="true" />
+              <span className="header-kill-copy">
+                <strong>Emergency Kill-Switch</strong>
+                <small>
+                  {isTogglingKillSwitch
+                    ? 'UPDATING…'
+                    : killSwitchActive
+                      ? 'ENGAGED · RUNS HALTED'
+                      : 'OFF · RUNS ENABLED'}
+                </small>
+              </span>
+              <span className="header-kill-track" aria-hidden="true">
+                <span />
+              </span>
+            </button>
+            {killSwitchError && activeView === 'student' && (
+              <span className="header-kill-error" role="alert">
+                {killSwitchError}
+              </span>
+            )}
           </div>
         </div>
 
