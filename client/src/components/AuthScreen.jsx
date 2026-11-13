@@ -41,23 +41,23 @@ const DEMO_ACCOUNTS = [
 
 const ROLE_META = {
   cfo: {
-    color: '#1d4ed8',
-    bg: '#eff6ff',
-    border: '#bfdbfe',
+    color: '#111315',
+    bg: '#f5f5f4',
+    border: '#e7e5e4',
     icon: '🏛️',
     description: 'Manage mandates, approve wallets, monitor disbursements, and control the agent kill-switch.',
   },
   student: {
-    color: '#047857',
+    color: '#059669',
     bg: '#ecfdf5',
     border: '#a7f3d0',
     icon: '🎓',
     description: 'View your bursary balance, assurance certificate, and payment history.',
   },
   auditor: {
-    color: '#7c3aed',
-    bg: '#f5f3ff',
-    border: '#ddd6fe',
+    color: '#d97706',
+    bg: '#fffbeb',
+    border: '#fde68a',
     icon: '🔍',
     description: 'Inspect immutable ledger proofs, verify transaction hashes, and export audit trails.',
   },

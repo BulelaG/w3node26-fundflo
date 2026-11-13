@@ -44,12 +44,12 @@ export default function Navbar({
             width: '40px',
             height: '40px',
             borderRadius: '12px',
-            background: 'linear-gradient(135deg, #00f2fe 0%, #0284c7 100%)',
+            background: '#059669',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             color: '#000000',
-            boxShadow: '0 0 20px rgba(0, 242, 254, 0.45)'
+            boxShadow: '0 0 20px rgba(5, 150, 105, 0.28)'
           }}>
             <ShieldCheck size={24} strokeWidth={2.5} />
           </div>

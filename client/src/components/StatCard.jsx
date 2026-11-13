@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function StatCard({ title, value, subtext, icon: Icon, progress, accentColor = '#00f2fe' }) {
+export default function StatCard({ title, value, subtext, icon: Icon, progress, accentColor = '#059669' }) {
   return (
     <div className="card" style={{ display: 'flex', flexDirection: 'column', justifyContent: 'space-between' }}>
       <div style={{ display: 'flex', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: '12px' }}>

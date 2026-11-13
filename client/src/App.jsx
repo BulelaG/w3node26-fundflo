@@ -53,6 +53,8 @@ import {
 import AnalyticsDashboard from './pages/AnalyticsDashboard.jsx'
 import AuditorPortal from './pages/AuditorPortal.jsx'
 import AuthScreen from './components/AuthScreen.jsx'
+import AuditDetailDrawer from './components/AuditDetailDrawer.jsx'
+import CopyValueButton from './components/CopyValueButton.jsx'
 import './App.css'
 import './auth.css'
 
@@ -256,43 +258,77 @@ function MetricCard({ label, value, detail, icon: Icon, tone = 'blue', trend }) 
   )
 }
 
-function PipelineBanner({ isBlocked, blockedCount }) {
+function PipelineBanner({ decision, blockedCount }) {
+  const status = String(decision?.status || '').toUpperCase()
+  const settled =
+    ['APPROVED_AND_EXECUTED', 'EXECUTED', 'SETTLED', 'VERIFIED'].includes(
+      status,
+    ) ||
+    (decision?.approved === true && decision?.executed === true)
+  const blocked =
+    !settled &&
+    (decision?.approved === false || status.includes('REJECTED'))
+  const ledgerFailed = status.includes('LEDGER_FAILED')
+  const hasDecision = Boolean(decision)
+  const reasonCode =
+    decision?.reasonCode || decision?.rejectionReason || 'POLICY_BLOCKED'
+
   return (
     <section
-      className={`pipeline-banner ${isBlocked ? 'is-blocked' : ''}`}
-      aria-label="Disbursement request pipeline"
+      className={`policy-gate-banner ${
+        settled ? 'is-settled' : blocked ? 'is-blocked' : ''
+      }`}
+      aria-label="Three-stage policy gate"
       aria-live="polite"
     >
-      <div className="pipeline-summary">
-        <span className="pipeline-eyebrow">DISBURSEMENT FLOW</span>
+      <div className="policy-gate-summary">
+        <span className="eyebrow">THREE-STAGE POLICY GATE</span>
         <strong>
-          {isBlocked
-            ? `${blockedCount} ${blockedCount === 1 ? 'request' : 'requests'} blocked`
-            : 'Three-step assurance'}
+          {settled
+            ? 'Settled on XRPL'
+            : blocked
+              ? 'Blocked before ledger submission'
+              : ledgerFailed
+                ? 'Ledger submission failed'
+                : 'Ready for assurance'}
         </strong>
         <small>
-          {isBlocked
-            ? 'Independent policy engine prevented ledger submission.'
-            : 'Every request is checked before it reaches the ledger.'}
+          {blocked
+            ? `Independent policy rule: ${reasonCode}`
+            : ledgerFailed
+              ? 'The policy gate passed, but ledger settlement needs attention.'
+              : blockedCount
+                ? `${blockedCount} previously blocked ${blockedCount === 1 ? 'request' : 'requests'} in the audit trail`
+                : 'Every request is checked before it reaches the ledger.'}
         </small>
       </div>
-      <div className="pipeline-steps">
-        <div className="pipeline-step">
-          <span className="pipeline-step-number">1</span>
-          <Zap size={17} />
-          <span>Autonomous Agent</span>
+      <div className={`policy-gate-steps ${hasDecision ? 'has-decision' : ''}`}>
+        <div className={`policy-gate-step ${hasDecision ? 'is-complete' : ''}`}>
+          <span className="policy-gate-step-number">1</span>
+          <Zap size={16} />
+          <span>Agent Intent</span>
         </div>
-        <ArrowRight className="pipeline-arrow" size={18} aria-hidden="true" />
-        <div className={`pipeline-step policy-step ${isBlocked ? 'blocked' : ''}`}>
-          <span className="pipeline-step-number">2</span>
-          {isBlocked ? <ShieldAlert size={18} /> : <ShieldCheck size={18} />}
-          <span>Independent Policy Engine</span>
+        <ArrowRight className="policy-gate-arrow" size={16} aria-hidden="true" />
+        <div
+          className={`policy-gate-step ${
+            blocked ? 'is-blocked' : settled || ledgerFailed ? 'is-complete' : ''
+          }`}
+        >
+          <span className="policy-gate-step-number">2</span>
+          {blocked ? <ShieldAlert size={16} /> : <ShieldCheck size={16} />}
+          <span>Independent Policy Gate</span>
+          {blocked && <code>{reasonCode}</code>}
         </div>
-        <ArrowRight className="pipeline-arrow" size={18} aria-hidden="true" />
-        <div className={`pipeline-step ledger-step ${isBlocked ? 'blocked' : ''}`}>
-          <span className="pipeline-step-number">3</span>
-          <Waves size={18} />
-          <span>XRPL Testnet Ledger</span>
+        <ArrowRight className="policy-gate-arrow" size={16} aria-hidden="true" />
+        <div
+          className={`policy-gate-step ${
+            settled ? 'is-complete' : ledgerFailed ? 'is-failed' : ''
+          }`}
+        >
+          <span className="policy-gate-step-number">3</span>
+          <Waves size={16} />
+          <span>{blocked ? 'Not submitted' : 'XRPL Ledger'}</span>
+          {ledgerFailed && <small>Settlement failed</small>}
         </div>
       </div>
     </section>
@@ -639,21 +675,42 @@ function AgentCard({
               {policyTestResult.approved ? 'APPROVED' : 'REJECTED'}
             </strong>
             <small>{policyTestResult.message}</small>
-            <code>
-              {policyTestResult.decisionId || 'Decision ID unavailable'} ·{' '}
-              {policyTestResult.policyVersion || 'Policy version unavailable'} ·{' '}
-              {policyTestResult.reasonCode || 'No rejection reason'}
-            </code>
+            <span className="policy-test-identifiers">
+              <span>
+                <code title={policyTestResult.decisionId || undefined}>
+                  {policyTestResult.decisionId
+                    ? compactHash(policyTestResult.decisionId)
+                    : 'Decision ID unavailable'}
+                </code>
+                {policyTestResult.decisionId && (
+                  <CopyValueButton
+                    value={policyTestResult.decisionId}
+                    label="decision ID"
+                  />
+                )}
+              </span>
+              <small>
+                Policy {policyTestResult.policyVersion || 'unversioned'} ·{' '}
+                {policyTestResult.reasonCode || 'No rejection reason'}
+              </small>
+            </span>
             {policyTestResult.txHash && (
-              <a
-                className="audit-hash"
-                href={`https://testnet.xrpl.org/transactions/${policyTestResult.txHash}`}
-                target="_blank"
-                rel="noopener noreferrer"
-              >
-                {compactHash(policyTestResult.txHash)}
-                <ExternalLink size={12} />
-              </a>
+              <span className="audit-hash-group">
+                <a
+                  className="audit-hash"
+                  href={`https://testnet.xrpl.org/transactions/${encodeURIComponent(policyTestResult.txHash)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  {compactHash(policyTestResult.txHash)}
+                  <ExternalLink size={12} />
+                </a>
+                <CopyValueButton
+                  value={policyTestResult.txHash}
+                  label="transaction hash"
+                />
+              </span>
             )}
           </span>
         </div>
@@ -699,33 +756,57 @@ function AgentCard({
           Valid Run
         </button>
       </div>
-      <div className="policy-scenario-heading">
-        Live policy-engine tests
-      </div>
-      <div className="policy-scenario-grid">
-        {[
-          ['duplicate', 'Duplicate Allowance'],
-          ['student-limit', 'Student Limit Exceeded'],
-          ['budget', 'Budget Exceeded'],
-          ['unapproved-recipient', 'Unapproved Recipient'],
-          ['paused-programme', 'Paused Programme'],
-        ].map(([scenario, label]) => (
-          <button
-            className="button button-test-policy"
-            key={scenario}
-            onClick={() => onRunPolicyScenario(scenario)}
-            disabled={isRunning}
-          >
-            <ShieldCheck size={14} />
-            {label}
-          </button>
-        ))}
-      </div>
       <div className="agent-footnote">
         <ShieldCheck size={14} />
         Valid payment submits 10 XRP on XRPL Testnet; other tests exercise live policy checks.
       </div>
     </section>
+  )
+}
+
+function PolicyStressTest({ isRunning, onRunScenario }) {
+  const scenarios = [
+    ['duplicate', 'Duplicate Allowance'],
+    ['student-limit', 'Student Limit Exceeded'],
+    ['budget', 'Budget Exceeded'],
+    ['unapproved-recipient', 'Unapproved Recipient'],
+    ['paused-programme', 'Paused Programme'],
+  ]
+
+  return (
+    <details className="policy-stress-test">
+      <summary>
+        <span className="policy-stress-icon">
+          <ShieldAlert size={17} />
+        </span>
+        <span className="policy-stress-copy">
+          <strong>Policy Stress-Test</strong>
+          <small>Five live blocked-action scenarios · collapsed by default</small>
+        </span>
+        <span className="policy-stress-count">5 scenarios</span>
+        <ArrowRight className="policy-stress-chevron" size={16} />
+      </summary>
+      <div className="policy-stress-content">
+        <p>
+          Exercise the independent policy engine against live demo data. Every
+          blocked request is recorded with its exact rule code.
+        </p>
+        <div className="policy-stress-grid">
+          {scenarios.map(([scenario, label]) => (
+            <button
+              className="button button-policy-stress"
+              key={scenario}
+              type="button"
+              onClick={() => onRunScenario(scenario)}
+              disabled={isRunning}
+            >
+              <ShieldAlert size={14} />
+              {label}
+            </button>
+          ))}
+        </div>
+      </div>
+    </details>
   )
 }
 
@@ -847,6 +928,18 @@ function ScheduleTable({
 }
 
 function AuditPanel({ auditLogs, currency }) {
+  const [selectedEntry, setSelectedEntry] = useState(null)
+
+  function handleEntryKeyDown(event, entry) {
+    if (
+      event.target === event.currentTarget &&
+      (event.key === 'Enter' || event.key === ' ')
+    ) {
+      event.preventDefault()
+      setSelectedEntry(entry)
+    }
+  }
+
   return (
     <section className="panel audit-panel">
       <div className="panel-heading">
@@ -865,7 +958,15 @@ function AuditPanel({ auditLogs, currency }) {
             const rejected =
               (entry.policyDecision || '').toLowerCase() === 'rejected'
             return (
-              <article className="audit-entry" key={entry._id}>
+              <article
+                className="audit-entry"
+                key={entry._id}
+                role="button"
+                tabIndex={0}
+                aria-label={`View audit details for ${entry.studentId || 'payment'} ${entry.policyDecision || 'decision'}`}
+                onClick={() => setSelectedEntry(entry)}
+                onKeyDown={(event) => handleEntryKeyDown(event, entry)}
+              >
                 <span
                   className={`audit-entry-icon ${rejected ? 'is-rejected' : ''}`}
                 >
@@ -897,7 +998,19 @@ function AuditPanel({ auditLogs, currency }) {
                   </div>
                   <div className="audit-policy-decision">
                     <strong>FundFlow Policy Decision</strong>
-                    <code>{entry.decisionId || 'Decision ID unavailable'}</code>
+                    <span className="audit-id-row">
+                      <code title={entry.decisionId || undefined}>
+                        {entry.decisionId
+                          ? compactHash(entry.decisionId)
+                          : 'Decision ID unavailable'}
+                      </code>
+                      {entry.decisionId && (
+                        <CopyValueButton
+                          value={entry.decisionId}
+                          label="decision ID"
+                        />
+                      )}
+                    </span>
                     <small>
                       Policy {entry.policyVersion || 'unversioned'} · Reason{' '}
                       {entry.reasonCode ||
@@ -906,17 +1019,24 @@ function AuditPanel({ auditLogs, currency }) {
                     </small>
                   </div>
                   {entry.txHash ? (
-                    <a
-                      className="audit-hash"
-                      href={`https://testnet.xrpl.org/transactions/${entry.txHash}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      aria-label={`Open XRPL transaction ${entry.txHash} in a new tab`}
-                      title={entry.txHash}
-                    >
-                      {compactHash(entry.txHash)}
-                      <ExternalLink size={12} />
-                    </a>
+                    <span className="audit-hash-group">
+                      <a
+                        className="audit-hash"
+                        href={`https://testnet.xrpl.org/transactions/${encodeURIComponent(entry.txHash)}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        aria-label={`Open XRPL transaction ${entry.txHash} in a new tab`}
+                        title={entry.txHash}
+                        onClick={(event) => event.stopPropagation()}
+                      >
+                        {compactHash(entry.txHash)}
+                        <ExternalLink size={12} />
+                      </a>
+                      <CopyValueButton
+                        value={entry.txHash}
+                        label="transaction hash"
+                      />
+                    </span>
                   ) : (
                     <span className="audit-reason">
                       {entry.rejectionReason || 'No ledger transaction'}
@@ -938,6 +1058,16 @@ function AuditPanel({ auditLogs, currency }) {
         </span>
         <span>Auto-refreshes every 30 sec</span>
       </div>
+      <AuditDetailDrawer
+        entry={selectedEntry}
+        currency={currency}
+        formatAmount={(amount, selectedCurrency) =>
+          selectedCurrency === 'XRP'
+            ? formatXrpAmount(amount)
+            : formatCurrency(amount, selectedCurrency)
+        }
+        onClose={() => setSelectedEntry(null)}
+      />
     </section>
   )
 }
@@ -981,6 +1111,8 @@ function AdminDashboard({
   const vaultCurrencies = [
     ...new Set(programmes.map((item) => item.currency || 'XRP')),
   ].join(' / ')
+  const latestDecision =
+    policyTestResult || triggerResult?.processed?.[0] || null
 
   return (
     <main className="main-content">
@@ -1064,7 +1196,7 @@ function AdminDashboard({
       </div>
 
       <PipelineBanner
-        isBlocked={blockedCount > 0}
+        decision={latestDecision}
         blockedCount={blockedCount}
       />
 
@@ -1080,6 +1212,11 @@ function AdminDashboard({
           error={triggerError}
         />
       </div>
+
+      <PolicyStressTest
+        isRunning={isTriggering}
+        onRunScenario={onRunPolicyScenario}
+      />
 
       <PolicyControls
         beneficiaries={beneficiaries}
@@ -1902,6 +2039,7 @@ function App() {
       setPolicyTestResult({
         scenarioLabel,
         approved: Boolean(result.approved && result.executed),
+        executed: Boolean(result.executed),
         message:
           result.message ||
           result.error ||
@@ -1958,6 +2096,7 @@ function App() {
     if (session?.role !== 'cfo' || killSwitchActive) return
     setIsTriggering(true)
     setTriggerError('')
+    setPolicyTestResult(null)
     try {
       const result = await triggerAgent()
       const processed = Array.isArray(result.results)
@@ -2029,9 +2168,9 @@ function App() {
   const visibleView = allowedViews.includes(activeView)
     ? activeView
     : allowedViews[0]
-  const ROLE_COLORS = { cfo: '#1d4ed8', student: '#047857', auditor: '#7c3aed' }
+  const ROLE_COLORS = { cfo: '#111315', student: '#059669', auditor: '#D97706' }
   const ROLE_SHORT_LABELS = { cfo: 'CFO', student: 'Student', auditor: 'Auditor' }
-  const userColor = ROLE_COLORS[session.role] || '#1d4ed8'
+  const userColor = ROLE_COLORS[session.role] || '#111315'
   const userLabel = `${String(session.name || session.email || 'User').split(' ')[0]} · ${
     ROLE_SHORT_LABELS[session.role] || session.role
   }`

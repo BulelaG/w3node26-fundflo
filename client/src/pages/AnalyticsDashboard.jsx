@@ -138,17 +138,17 @@ export default function AnalyticsDashboard() {
           {/* Legacy Status Quo */}
           <div className="treasury-comparison-card" style={{
             padding: '20px',
-            backgroundColor: '#fef2f2',
-            border: '1px solid #fecaca',
+            backgroundColor: '#fff1f2',
+            border: '1px solid #fecdd3',
             borderRadius: '12px'
           }}>
-            <div style={{ fontSize: '0.75rem', color: '#b91c1c', fontWeight: '750', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '0.75rem', color: '#E11D48', fontWeight: '750', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
               Legacy Status Quo (4 Fintech Contractors)
             </div>
-            <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#0f172a', margin: '6px 0 12px 0' }}>
+            <div style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--ink)', margin: '6px 0 12px 0' }}>
               R29.00 / student / month
             </div>
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.84rem', color: '#475569' }}>
+            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.84rem', color: '#57534E' }}>
               <li>❌ Fees subtracted directly from student food allowance</li>
               <li>❌ R10.00 cash withdrawal fee at ATMs</li>
               <li>❌ 12-month delayed reconciliation (Qualified AGSA Audits)</li>
@@ -164,13 +164,13 @@ export default function AnalyticsDashboard() {
             border: '1px solid #a7f3d0',
             borderRadius: '12px'
           }}>
-            <div style={{ fontSize: '0.75rem', color: '#047857', fontWeight: '750', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '0.75rem', color: '#059669', fontWeight: '750', letterSpacing: '0.06em', textTransform: 'uppercase' }}>
               FundFlow on XRPL
             </div>
-            <div style={{ fontSize: '1.25rem', fontWeight: '700', color: '#0f172a', margin: '6px 0 12px 0' }}>
+            <div style={{ fontSize: '1.25rem', fontWeight: '700', color: 'var(--ink)', margin: '6px 0 12px 0' }}>
               R0.00 Student Cost (0.000012 XRP Network Fee)
             </div>
-            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.84rem', color: '#0f172a' }}>
+            <ul style={{ listStyle: 'none', display: 'flex', flexDirection: 'column', gap: '8px', fontSize: '0.84rem', color: 'var(--ink)' }}>
               <li>✅ 100% of approved living stipend reaches the student</li>
               <li>✅ Direct self-custody or authorized campus merchant tap-to-pay</li>
               <li>✅ 3.8-second deterministic ledger finality on XRPL</li>
@@ -197,15 +197,15 @@ export default function AnalyticsDashboard() {
             <div key={inst.name} style={{ display: 'flex', flexDirection: 'column', gap: '6px' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '0.86rem' }}>
                 <strong style={{ color: 'var(--navy)' }}>{inst.name}</strong>
-                <span style={{ color: 'var(--emerald)', fontWeight: '700' }}>
+                <span className="financial-value" style={{ color: 'var(--emerald)', fontWeight: '700' }}>
                   {inst.disbursedXRP} XRP (~R{inst.disbursedZAR})
                 </span>
               </div>
-              <div style={{ width: '100%', height: '8px', backgroundColor: '#e2e8f0', borderRadius: '4px', overflow: 'hidden' }}>
+              <div style={{ width: '100%', height: '8px', backgroundColor: '#e7e5e4', borderRadius: '4px', overflow: 'hidden' }}>
                 <div style={{
                   width: `${Math.min(100, Math.max(15, (inst.disbursedXRP / (data.totalDisbursedXRP || 1)) * 100))}%`,
                   height: '100%',
-                  backgroundColor: '#047857',
+                  backgroundColor: '#059669',
                   borderRadius: '4px'
                 }} />
               </div>

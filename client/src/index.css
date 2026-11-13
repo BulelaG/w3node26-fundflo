@@ -1,42 +1,43 @@
-﻿@import url('https://fonts.googleapis.com/css2?family=Comfortaa:wght@300;400;500;700&family=Poppins:wght@300;400;500;600;700;800&family=Inter:wght@400;500;600;700&display=swap');
-
 :root {
-  /* Bongiwe's Institutional Fintech Color Palette */
-  --canvas: #e9edf4;
+  --canvas: #faf9f6;
   --surface: #ffffff;
-  --surface-elevated: #f8fafc;
-  --border: #e2e8f0;
-  --border-focus: #59dfc0;
+  --surface-elevated: #f5f5f4;
+  --border: #e7e5e4;
+  --border-focus: #059669;
   
-  --navy: #0f172a;
-  --sidebar-bg: #101d31;
-  --sidebar-hover: #182b44;
-  --sidebar-text: #b7c5d8;
+  --navy: #111315;
+  --sidebar-bg: #111315;
+  --sidebar-hover: #202426;
+  --sidebar-text: #d6d3d1;
   --sidebar-text-active: #ffffff;
   
-  --ink: #0f172a;
-  --text-main: #0f172a;
-  --text-muted: #1e293b;
-  --text-dim: #334155;
+  --ink: #111315;
+  --text-main: #111315;
+  --text-muted: #57534e;
+  --text-dim: #78716c;
 
-  --accent-cyan: #0284c7;
-  --accent-teal: #59dfc0;
-  --accent-mint: #10b981;
+  --accent-cyan: #059669;
+  --accent-teal: #059669;
+  --accent-mint: #059669;
 
-  --emerald: #047857;
+  --emerald: #059669;
   --emerald-border: #a7f3d0;
   --emerald-surface: #ecfdf5;
+  --amber: #D97706;
+  --amber-border: #fde68a;
+  --amber-surface: #fffbeb;
 
-  --danger: #b91c1c;
-  --danger-border: #fecaca;
-  --danger-surface: #fef2f2;
+  --danger: #E11D48;
+  --danger-border: #fecdd3;
+  --danger-surface: #fff1f2;
 
-  --font-family: 'Poppins', 'Inter', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-  --font-display: 'Comfortaa', cursive, -apple-system, sans-serif;
-  --font-mono: 'SFMono-Regular', Consolas, 'Liberation Mono', monospace;
+  --font-family: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-display: 'Plus Jakarta Sans', -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
+  --font-mono: 'JetBrains Mono', 'SFMono-Regular', Consolas, monospace;
 
-  --card-shadow: 0 1px 2px rgb(15 23 42 / 4%), 0 8px 24px rgb(15 23 42 / 3%);
-  --card-shadow-hover: 0 4px 6px -1px rgb(15 23 42 / 7%), 0 12px 28px -2px rgb(15 23 42 / 8%);
+  --card-shadow: 0 1px 2px rgb(17 19 21 / 4%), 0 8px 24px rgb(17 19 21 / 3%);
+  --card-shadow-hover: 0 4px 6px -1px rgb(17 19 21 / 7%), 0 12px 28px -2px rgb(17 19 21 / 8%);
 }
 
 * {
@@ -83,26 +84,26 @@ button, select {
 }
 
 a {
-  color: #0284c7;
+  color: var(--emerald);
   text-decoration: none;
   transition: color 150ms ease;
 }
 
 a:hover {
-  color: #0369a1;
+  color: #059669;
   text-decoration: underline;
 }
 
 button:focus-visible,
 a:focus-visible,
 select:focus-visible {
-  outline: 3px solid rgb(15 23 42 / 20%);
+  outline: 3px solid rgb(5 150 105 / 28%);
   outline-offset: 2px;
 }
 
 ::selection {
-  color: var(--navy);
-  background: #bbf7d0;
+  color: var(--ink);
+  background: #d1fae5;
 }
 
 /* Modals */
@@ -143,11 +144,12 @@ select:focus-visible {
 }
 
 .form-input:focus {
-  border-color: #0284c7;
-  box-shadow: 0 0 0 3px rgba(2, 132, 199, 0.15);
+  border-color: var(--emerald);
+  box-shadow: 0 0 0 3px rgb(5 150 105 / 14%);
 }
 
 .mono {
   font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums lining-nums;
 }
 

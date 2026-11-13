@@ -10,13 +10,31 @@ import {
   CheckCircle,
   Database
 } from 'lucide-react';
-import { api } from '../services/api';
+import { api, XRP_TO_ZAR_DEMO_RATE } from '../services/api';
+import AuditDetailDrawer from '../components/AuditDetailDrawer.jsx';
+import CopyValueButton from '../components/CopyValueButton.jsx';
+
+function compactIdentifier(value = '') {
+  if (value.length <= 20) return value;
+  return `${value.slice(0, 10)}...${value.slice(-8)}`;
+}
+
+function formatXrpAmount(value) {
+  return `XRP ${new Intl.NumberFormat('en-ZA', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format(Number(value) || 0)} ≈ ZAR ${new Intl.NumberFormat('en-ZA', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2,
+  }).format((Number(value) || 0) * XRP_TO_ZAR_DEMO_RATE)}`;
+}
 
 export default function AuditorPortal({ auditLogs = [] }) {
   const [adminWalletInfo, setAdminWalletInfo] = useState(null);
   const [inspectHash, setInspectHash] = useState('');
   const [inspectionResult, setInspectionResult] = useState(null);
   const [copiedHash, setCopiedHash] = useState(null);
+  const [selectedEntry, setSelectedEntry] = useState(null);
 
   useEffect(() => {
     async function loadWallet() {
@@ -66,6 +84,16 @@ export default function AuditorPortal({ auditLogs = [] }) {
     }
   };
 
+  const handleAuditRowKeyDown = (event, log) => {
+    if (
+      event.target === event.currentTarget &&
+      (event.key === 'Enter' || event.key === ' ')
+    ) {
+      event.preventDefault();
+      setSelectedEntry(log);
+    }
+  };
+
   return (
     <main className="main-content">
       <header className="page-header">
@@ -91,7 +119,7 @@ export default function AuditorPortal({ auditLogs = [] }) {
               fontSize: '0.84rem'
             }}
           >
-            <Download size={15} color="#047857" />
+            <Download size={15} color="#059669" />
             <span>Export Forensic Dossier (.CSV)</span>
           </button>
         </div>
@@ -101,7 +129,7 @@ export default function AuditorPortal({ auditLogs = [] }) {
       <section className="panel" style={{ padding: '24px', backgroundColor: '#ecfdf5', border: '1px solid #a7f3d0' }}>
         <div className="panel-heading" style={{ marginBottom: '16px' }}>
           <div>
-            <div className="eyebrow" style={{ color: '#047857' }}>ON-CHAIN RECONCILIATION</div>
+            <div className="eyebrow" style={{ color: '#059669' }}>ON-CHAIN RECONCILIATION</div>
             <h2>Cryptographic Proof of Reserve</h2>
             <p style={{ color: '#065f46' }}>
               Live validated XRP Ledger reserves backing active student bursary allocations. Verified via RPCA consensus.
@@ -115,7 +143,7 @@ export default function AuditorPortal({ auditLogs = [] }) {
 
         <div className="reserve-grid">
           <div className="reserve-card" style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #a7f3d0' }}>
-            <div style={{ fontSize: '0.72rem', color: '#047857', fontWeight: '700', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '0.72rem', color: '#059669', fontWeight: '700', textTransform: 'uppercase' }}>
               Treasury Vault Address
             </div>
             <div className="mono" style={{ fontSize: '0.84rem', color: 'var(--navy)', marginTop: '4px', wordBreak: 'break-all' }}>
@@ -124,17 +152,17 @@ export default function AuditorPortal({ auditLogs = [] }) {
           </div>
 
           <div className="reserve-card" style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #a7f3d0' }}>
-            <div style={{ fontSize: '0.72rem', color: '#047857', fontWeight: '700', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '0.72rem', color: '#059669', fontWeight: '700', textTransform: 'uppercase' }}>
               Live Validated Reserve
             </div>
-            <div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#047857', marginTop: '2px' }}>
+            <div style={{ fontSize: '1.4rem', fontWeight: '700', color: '#059669', marginTop: '2px' }}>
               {adminWalletInfo ? `${adminWalletInfo.balanceXRP.toFixed(2)} XRP` : 'Syncing...'}
             </div>
             <div style={{ fontSize: '0.72rem', color: 'var(--muted)' }}>Native Testnet XRP</div>
           </div>
 
           <div className="reserve-card" style={{ padding: '16px', backgroundColor: '#ffffff', borderRadius: '10px', border: '1px solid #a7f3d0' }}>
-            <div style={{ fontSize: '0.72rem', color: '#047857', fontWeight: '700', textTransform: 'uppercase' }}>
+            <div style={{ fontSize: '0.72rem', color: '#059669', fontWeight: '700', textTransform: 'uppercase' }}>
               Ledger Account Sequence
             </div>
             <div style={{ fontSize: '1.4rem', fontWeight: '700', color: 'var(--navy)', marginTop: '2px' }}>
@@ -171,7 +199,7 @@ export default function AuditorPortal({ auditLogs = [] }) {
             style={{
               padding: '10px 20px',
               borderRadius: '9px',
-              background: '#0f172a',
+              background: '#111315',
               color: '#ffffff',
               fontWeight: '600'
             }}
@@ -190,11 +218,11 @@ export default function AuditorPortal({ auditLogs = [] }) {
           }}>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '6px' }}>
               {inspectionResult.verified ? (
-                <CheckCircle size={18} color="#047857" />
+                <CheckCircle size={18} color="#059669" />
               ) : (
-                <AlertTriangle size={18} color="#b91c1c" />
+                <AlertTriangle size={18} color="#E11D48" />
               )}
-              <strong style={{ color: inspectionResult.verified ? '#047857' : '#b91c1c', fontSize: '0.95rem' }}>
+              <strong style={{ color: inspectionResult.verified ? '#059669' : '#E11D48', fontSize: '0.95rem' }}>
                 {inspectionResult.verified ? 'VERIFIED POLICY MATCH' : 'UNVERIFIED OUT-OF-BAND MOVEMENT'}
               </strong>
             </div>
@@ -242,7 +270,15 @@ export default function AuditorPortal({ auditLogs = [] }) {
                 const isApproved = log.policyDecision === 'APPROVED';
 
                 return (
-                  <tr key={log.id || log._id}>
+                  <tr
+                    key={log.id || log._id}
+                    className="auditor-audit-row"
+                    role="button"
+                    tabIndex={0}
+                    aria-label={`View audit details for ${log.studentId || 'payment'} ${log.policyDecision || 'decision'}`}
+                    onClick={() => setSelectedEntry(log)}
+                    onKeyDown={(event) => handleAuditRowKeyDown(event, log)}
+                  >
                     <td className="time-cell">
                       {new Date(log.timestamp).toLocaleTimeString()}
                     </td>
@@ -259,7 +295,19 @@ export default function AuditorPortal({ auditLogs = [] }) {
                       </span>
                       <div className="audit-policy-decision">
                         <strong>FundFlow Policy Decision</strong>
-                        <code>{log.decisionId || 'Decision ID unavailable'}</code>
+                        <span className="audit-id-row">
+                          <code title={log.decisionId || undefined}>
+                            {log.decisionId
+                              ? compactIdentifier(log.decisionId)
+                              : 'Decision ID unavailable'}
+                          </code>
+                          {log.decisionId && (
+                            <CopyValueButton
+                              value={log.decisionId}
+                              label="decision ID"
+                            />
+                          )}
+                        </span>
                         <small>
                           Policy {log.policyVersion || 'unversioned'} · Reason{' '}
                           {log.reasonCode || log.rejectionReason || 'NONE'}
@@ -268,26 +316,33 @@ export default function AuditorPortal({ auditLogs = [] }) {
                     </td>
                     <td>
                       {log.ledgerResult ? (
-                        <span style={{ color: '#047857', fontWeight: '600', fontSize: '0.8rem' }}>
+                        <span style={{ color: '#059669', fontWeight: '600', fontSize: '0.8rem' }}>
                           {log.ledgerResult}
                         </span>
                       ) : (
-                        <span style={{ color: '#b91c1c', fontSize: '0.76rem', fontWeight: '600' }}>
+                        <span style={{ color: '#E11D48', fontSize: '0.76rem', fontWeight: '600' }}>
                           {log.rejectionReason}
                         </span>
                       )}
                     </td>
                     <td>
                       {log.txHash ? (
-                        <a
-                          href={`https://testnet.xrpl.org/transactions/${log.txHash}`}
-                          target="_blank"
-                          rel="noreferrer"
-                          style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}
-                        >
-                          <span className="mono">{log.txHash.substring(0, 10)}...</span>
-                          <ExternalLink size={12} />
-                        </a>
+                        <span className="audit-hash-group">
+                          <a
+                            href={`https://testnet.xrpl.org/transactions/${encodeURIComponent(log.txHash)}`}
+                            target="_blank"
+                            rel="noreferrer"
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '4px', fontSize: '0.8rem' }}
+                            onClick={(event) => event.stopPropagation()}
+                          >
+                            <span className="mono" title={log.txHash}>{compactIdentifier(log.txHash)}</span>
+                            <ExternalLink size={12} />
+                          </a>
+                          <CopyValueButton
+                            value={log.txHash}
+                            label="transaction hash"
+                          />
+                        </span>
                       ) : (
                         <span style={{ fontSize: '0.75rem', color: 'var(--muted)' }}>No Tx Dispatched</span>
                       )}
@@ -298,6 +353,12 @@ export default function AuditorPortal({ auditLogs = [] }) {
             </tbody>
           </table>
         </div>
+        <AuditDetailDrawer
+          entry={selectedEntry}
+          currency="XRP"
+          formatAmount={(amount) => formatXrpAmount(amount)}
+          onClose={() => setSelectedEntry(null)}
+        />
       </section>
     </main>
   );

@@ -5,25 +5,25 @@ export default function StatusBadge({ status, label }) {
   const normalized = (status || '').toUpperCase();
   const text = label || status;
 
-  let bg = 'rgba(148, 163, 184, 0.15)';
-  let color = '#94a3b8';
+  let bg = 'rgba(120, 113, 108, 0.10)';
+  let color = '#78716c';
   let Icon = Clock;
 
   if (normalized === 'VERIFIED' || normalized === 'APPROVED' || normalized === 'SUCCESS' || normalized === 'ACTIVE') {
-    bg = 'rgba(16, 185, 129, 0.15)';
-    color = '#10b981';
+    bg = 'rgba(5, 150, 105, 0.10)';
+    color = '#059669';
     Icon = CheckCircle2;
   } else if (normalized === 'PENDING' || normalized === 'PROCESSING' || normalized === 'AWAITING') {
-    bg = 'rgba(245, 158, 11, 0.15)';
-    color = '#f59e0b';
+    bg = 'rgba(217, 119, 6, 0.10)';
+    color = '#D97706';
     Icon = Clock;
   } else if (normalized === 'REJECTED' || normalized === 'BLOCKED' || normalized === 'FAILED') {
-    bg = 'rgba(239, 68, 68, 0.18)';
-    color = '#ef4444';
+    bg = 'rgba(225, 29, 72, 0.10)';
+    color = '#E11D48';
     Icon = XCircle;
   } else if (normalized === 'PAUSED') {
-    bg = 'rgba(148, 163, 184, 0.2)';
-    color = '#cbd5e1';
+    bg = 'rgba(217, 119, 6, 0.10)';
+    color = '#D97706';
     Icon = PauseCircle;
   }
 
