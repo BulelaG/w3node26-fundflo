@@ -1,0 +1,275 @@
+/* ============================================================
+   GLASSMORPHISM & DARK CALM SLATE CARDS / TABLES
+   ============================================================ */
+
+:root {
+  --glass-canvas: #0b0f17;
+  --glass-surface: rgba(18, 24, 38, 0.75);
+  --glass-surface-card: rgba(22, 30, 46, 0.72);
+  --glass-border: rgba(255, 255, 255, 0.08);
+  --glass-border-highlight: rgba(255, 255, 255, 0.14);
+  --glass-text-head: #f1f5f9;
+  --glass-text-body: #cbd5e1;
+  --glass-text-muted: #94a3b8;
+  --glass-blur: blur(16px);
+}
+
+.app-shell {
+  background: radial-gradient(circle at 12% 18%, rgba(5, 150, 105, 0.06) 0%, transparent 45%),
+              radial-gradient(circle at 88% 82%, rgba(2, 132, 199, 0.05) 0%, transparent 45%),
+              #0b0f17 !important;
+  color: var(--glass-text-body) !important;
+}
+
+/* Glassmorphic Topbar */
+.topbar {
+  background: rgba(11, 15, 23, 0.82) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+.topbar-brand-copy strong {
+  color: #f1f5f9 !important;
+}
+
+.topbar-brand-copy span {
+  color: #94a3b8 !important;
+}
+
+/* View Switcher Glass */
+.view-switcher {
+  background: rgba(18, 24, 38, 0.85) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  backdrop-filter: blur(10px) !important;
+  -webkit-backdrop-filter: blur(10px) !important;
+}
+
+.view-switcher-button {
+  color: #94a3b8 !important;
+}
+
+.view-switcher-button:hover {
+  color: #f1f5f9 !important;
+}
+
+.view-switcher-button.active {
+  background: rgba(255, 255, 255, 0.08) !important;
+  color: #f1f5f9 !important;
+  border-color: rgba(255, 255, 255, 0.12) !important;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25) !important;
+}
+
+/* Glass Panels & Calm Dark Cards */
+.panel, 
+.programme-panel, 
+.metric-card, 
+.schedule-panel, 
+.audit-panel, 
+.policy-controls-panel,
+.student-disbursements,
+.portal-summary-panel {
+  background: rgba(18, 24, 38, 0.72) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.35) !important;
+  color: var(--glass-text-body) !important;
+  border-radius: 14px !important;
+}
+
+.panel:hover,
+.metric-card:hover {
+  border-color: rgba(255, 255, 255, 0.14) !important;
+}
+
+/* Typography on Dark Glass */
+.panel h2, 
+.panel h3, 
+.page-header h1,
+.metric-value,
+.financial-value {
+  color: #f8fafc !important;
+}
+
+.eyebrow,
+.page-header p,
+.panel-heading p {
+  color: #94a3b8 !important;
+}
+
+/* Glass Table Styles */
+table {
+  color: var(--glass-text-body) !important;
+}
+
+table thead th {
+  background: rgba(255, 255, 255, 0.03) !important;
+  color: #94a3b8 !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+}
+
+table tbody tr {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.04) !important;
+  transition: background 150ms ease;
+}
+
+table tbody tr:hover {
+  background: rgba(255, 255, 255, 0.04) !important;
+}
+
+table tbody td {
+  color: #cbd5e1 !important;
+}
+
+table tbody td strong {
+  color: #f8fafc !important;
+}
+
+/* Policy Controls Card & Sliders */
+.policy-controls-grid,
+.cap-control-row {
+  border-color: rgba(255, 255, 255, 0.06) !important;
+}
+
+.cap-avatar {
+  background: rgba(255, 255, 255, 0.06) !important;
+  color: #f1f5f9 !important;
+}
+
+.cap-control-row strong {
+  color: #f8fafc !important;
+}
+
+.cap-control-row small {
+  color: #94a3b8 !important;
+}
+
+/* Glass Card Accents for Policy and Agent */
+.agent-card {
+  background: rgba(15, 23, 42, 0.78) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(89, 223, 192, 0.22) !important;
+  box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.4) !important;
+}
+
+.agent-card h2 {
+  color: #f8fafc !important;
+}
+
+.agent-description {
+  color: #94a3b8 !important;
+}
+
+/* Policy Gate Banner Glass */
+.policy-gate-banner, 
+.pipeline-banner {
+  background: rgba(18, 24, 38, 0.85) !important;
+  backdrop-filter: blur(16px) !important;
+  -webkit-backdrop-filter: blur(16px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3) !important;
+}
+
+.policy-gate-summary strong,
+.pipeline-summary strong {
+  color: #f8fafc !important;
+}
+
+.policy-gate-summary small,
+.pipeline-summary small {
+  color: #94a3b8 !important;
+}
+
+.policy-gate-step,
+.pipeline-step {
+  background: rgba(255, 255, 255, 0.04) !important;
+  border: 1px solid rgba(255, 255, 255, 0.08) !important;
+  color: #cbd5e1 !important;
+}
+
+/* User Pill & Status Badges on Glass */
+.user-pill {
+  background: rgba(18, 24, 38, 0.9) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #f8fafc !important;
+}
+
+.user-pill-info strong {
+  color: #f8fafc !important;
+}
+
+.user-pill-info small {
+  color: #94a3b8 !important;
+}
+
+.user-logout-btn {
+  background: rgba(255, 255, 255, 0.06) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #cbd5e1 !important;
+}
+
+.user-logout-btn:hover {
+  background: rgba(255, 255, 255, 0.12) !important;
+  color: #ffffff !important;
+}
+
+/* Slide-out Audit Drawer Glass */
+.audit-detail-drawer {
+  background: rgba(14, 19, 30, 0.94) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border-left: 1px solid rgba(255, 255, 255, 0.1) !important;
+  color: #cbd5e1 !important;
+}
+
+.audit-detail-drawer h2,
+.audit-detail-drawer strong {
+  color: #f8fafc !important;
+}
+
+.audit-detail-fields > div {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+.audit-detail-fields span {
+  color: #94a3b8 !important;
+}
+
+.audit-detail-identifier {
+  background: rgba(255, 255, 255, 0.03) !important;
+  border: 1px solid rgba(255, 255, 255, 0.06) !important;
+}
+
+.audit-detail-identifier code {
+  color: #59dfc0 !important;
+}
+
+.audit-detail-identifier.is-rejected code {
+  color: #f87171 !important;
+}
+
+/* Inputs on Glass */
+.form-input, 
+input[type="number"], 
+input[type="text"], 
+input[type="password"], 
+input[type="email"] {
+  background: rgba(11, 15, 23, 0.8) !important;
+  border: 1px solid rgba(255, 255, 255, 0.12) !important;
+  color: #f8fafc !important;
+}
+
+.form-input:focus,
+input:focus {
+  border-color: #059669 !important;
+  box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.25) !important;
+}
+
+/* App Footer Glass */
+.app-footer {
+  color: #94a3b8 !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.06) !important;
+}

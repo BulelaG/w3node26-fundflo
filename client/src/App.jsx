@@ -57,6 +57,7 @@ import AuditDetailDrawer from './components/AuditDetailDrawer.jsx'
 import CopyValueButton from './components/CopyValueButton.jsx'
 import './App.css'
 import './auth.css'
+import './glassmorphism.css'
 
 const REFRESH_INTERVAL = 30000
 const ZAR_PER_RLUSD = 18
