@@ -1,0 +1,31 @@
+# Render Blueprint: persistent host for the FundFlow API.
+#
+# Why not Vercel for the API? The backend keeps programme budgets, schedules,
+# the duplicate-payment lock and the audit trail in process memory, and holds a
+# long-lived WebSocket to XRPL Testnet. Serverless cold starts wipe all of that
+# and concurrent lambdas disagree about state. A single always-on Node process
+# is the correct shape for this demo. Keep Vercel for the Vite client and point
+# VITE_API_BASE_URL at the Render URL.
+#
+# Deploy: https://dashboard.render.com -> New -> Blueprint -> select this repo.
+services:
+  - type: web
+    name: fundflow-api
+    runtime: node
+    rootDir: server
+    plan: free
+    buildCommand: npm ci
+    startCommand: npm start
+    healthCheckPath: /api/health
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: XRPL_NODE_URL
+        value: wss://s.altnet.rippletest.net:51233
+      - key: XRPL_EXPLORER_URL
+        value: https://testnet.xrpl.org
+      - key: XRP_TO_ZAR_RATE
+        value: "165"
+      # Set in the Render dashboard, never in git. Pre-fund this wallet before the demo.
+      - key: XRPL_ADMIN_SEED
+        sync: false

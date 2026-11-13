@@ -25,8 +25,24 @@ class DisbursementAgent {
    * Run one autonomous disbursement evaluation cycle
    */
   async runCycle() {
+    // Re-entrancy guard: a second trigger while a cycle is in flight must not
+    // double-provision wallets or race the policy engine's PROCESSING lock.
+    if (this.status === "RUNNING") {
+      const err = new Error('An autonomous disbursement cycle is already in progress.');
+      err.code = 'ERR_CYCLE_IN_PROGRESS';
+      err.status = 409;
+      throw err;
+    }
     this.status = "RUNNING";
     const cycleId = `CYC-${Date.now()}`;
+    try {
+      return await this._executeCycle(cycleId);
+    } finally {
+      this.status = "IDLE";
+    }
+  }
+
+  async _executeCycle(cycleId) {
     console.log(`\n[Agent] Starting autonomous disbursement cycle: ${cycleId}...`);
 
     // 1. Ensure all active students have Testnet wallets for the demo
@@ -35,8 +51,8 @@ class DisbursementAgent {
         console.log(`[Agent] Provisioning Testnet wallet for student ${b.studentId} (${b.fullName})...`);
         try {
           const w = await createAndFundStudentWallet();
+          // Only the public address is persisted. Student seeds are never stored server-side.
           b.walletAddress = w.address;
-          b.walletSeed = w.seed;
           b.updatedAt = new Date().toISOString();
           console.log(`[Agent] Assigned wallet ${b.walletAddress} to ${b.studentId}`);
         } catch (e) {
@@ -87,7 +103,6 @@ class DisbursementAgent {
       });
     }
 
-    this.status = "IDLE";
     console.log(`[Agent] Completed cycle ${cycleId}. Processed ${cycleResults.length} item(s).\n`);
 
     return {

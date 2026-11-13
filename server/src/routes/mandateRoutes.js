@@ -14,6 +14,19 @@ const {
 } = require('../data/store');
 const { getAccountLedgerInfo, getAdminWallet } = require('../xrpl/xrplClient');
 const requireAdminRole = require('../middleware/requireAdminRole');
+const { isValidXrplAddress } = require('../policy/policyEngine');
+const { XRP_TO_ZAR_RATE } = require('../config/currency');
+
+const BENEFICIARY_STATUSES = ['ACTIVE', 'SUSPENDED', 'GRADUATED', 'WITHDRAWN'];
+
+function parsePositiveNumber(value, fieldName, { allowZero = false } = {}) {
+  if (value === undefined) return { ok: true, value: undefined };
+  const n = Number(value);
+  if (!Number.isFinite(n) || (allowZero ? n < 0 : n <= 0)) {
+    return { ok: false, error: `${fieldName} must be a ${allowZero ? 'non-negative' : 'positive'} number.` };
+  }
+  return { ok: true, value: n };
+}
 
 function serializeProgramme(programme) {
   const id = programme.id || programme._id;
@@ -59,6 +72,11 @@ router.post('/demo/reset', requireAdminRole, (req, res) => {
   });
 });
 
+// GET /api/config (shared constants so the client never hardcodes financial parameters)
+router.get('/config', (req, res) => {
+  res.json({ xrpToZarRate: XRP_TO_ZAR_RATE, currency: 'XRP', network: 'testnet' });
+});
+
 // GET /api/programmes
 router.get('/programmes', (req, res) => {
   res.json(getProgrammes().map(serializeProgramme));
@@ -66,18 +84,30 @@ router.get('/programmes', (req, res) => {
 
 // POST /api/programmes (Create New Funding Mandate)
 router.post('/programmes', requireAdminRole, (req, res) => {
-  const { name, sponsor, totalBudget } = req.body;
-  if (!name || !totalBudget) {
+  const { name, sponsor, totalBudget } = req.body || {};
+  if (!name || typeof name !== 'string' || totalBudget === undefined) {
     return res.status(400).json({ error: 'Name and totalBudget are required.' });
   }
+  const budget = parsePositiveNumber(totalBudget, 'totalBudget');
+  if (!budget.ok) return res.status(400).json({ error: budget.error });
 
-  const newProg = addProgramme({ name, sponsor, totalBudget });
+  const newProg = addProgramme({ name: name.trim(), sponsor, totalBudget: budget.value });
   res.status(201).json(serializeProgramme(newProg));
 });
 
 // PATCH /api/programmes/:id (Update Mandate Settings/Budget)
 router.patch('/programmes/:id', requireAdminRole, (req, res) => {
-  const updated = updateProgramme(req.params.id, req.body);
+  const { name, totalBudget } = req.body || {};
+  const updates = {};
+  if (name !== undefined) {
+    if (typeof name !== 'string' || !name.trim()) return res.status(400).json({ error: 'name must be a non-empty string.' });
+    updates.name = name.trim();
+  }
+  const budget = parsePositiveNumber(totalBudget, 'totalBudget');
+  if (!budget.ok) return res.status(400).json({ error: budget.error });
+  if (budget.value !== undefined) updates.totalBudget = budget.value;
+
+  const updated = updateProgramme(req.params.id, updates);
   if (!updated) {
     return res.status(404).json({ error: 'Programme not found' });
   }
@@ -121,17 +151,26 @@ router.get('/beneficiaries', (req, res) => {
 
 // POST /api/beneficiaries (Onboard New Student Beneficiary)
 router.post('/beneficiaries', requireAdminRole, (req, res) => {
-  const { fullName, institution, monthlyAllowance, programmeId, studentId } = req.body;
-  if (!fullName) {
+  const { fullName, institution, monthlyAllowance, programmeId, studentId, walletAddress } = req.body || {};
+  if (!fullName || typeof fullName !== 'string' || !fullName.trim()) {
     return res.status(400).json({ error: 'Student full name is required.' });
+  }
+  const allowance = parsePositiveNumber(monthlyAllowance, 'monthlyAllowance');
+  if (!allowance.ok) return res.status(400).json({ error: allowance.error });
+  if (walletAddress !== undefined && walletAddress !== null && !isValidXrplAddress(walletAddress)) {
+    return res.status(400).json({ error: 'walletAddress must be a valid XRPL classic address (starts with r).' });
+  }
+  if (programmeId !== undefined && !getProgrammeById(programmeId)) {
+    return res.status(400).json({ error: `Programme ${programmeId} does not exist.` });
   }
 
   const newStudent = addBeneficiary({
-    fullName,
+    fullName: fullName.trim(),
     institution,
-    monthlyAllowance,
+    monthlyAllowance: allowance.value,
     programmeId,
-    studentId
+    studentId,
+    walletAddress: walletAddress || null
   });
 
   res.status(201).json(serializeBeneficiary(newStudent));
@@ -139,7 +178,26 @@ router.post('/beneficiaries', requireAdminRole, (req, res) => {
 
 // PATCH /api/beneficiaries/:studentId (Adjust Allowance Cap or Status)
 router.patch('/beneficiaries/:studentId', requireAdminRole, (req, res) => {
-  const updated = updateBeneficiary(req.params.studentId, req.body);
+  const { monthlyAllowance, status, walletAddress } = req.body || {};
+  const updates = {};
+  const allowance = parsePositiveNumber(monthlyAllowance, 'monthlyAllowance', { allowZero: true });
+  if (!allowance.ok) return res.status(400).json({ error: allowance.error });
+  if (allowance.value !== undefined) updates.monthlyAllowance = allowance.value;
+  if (status !== undefined) {
+    const normalized = String(status).toUpperCase();
+    if (!BENEFICIARY_STATUSES.includes(normalized)) {
+      return res.status(400).json({ error: `status must be one of ${BENEFICIARY_STATUSES.join(', ')}.` });
+    }
+    updates.status = normalized;
+  }
+  if (walletAddress !== undefined) {
+    if (!isValidXrplAddress(walletAddress)) {
+      return res.status(400).json({ error: 'walletAddress must be a valid XRPL classic address (starts with r).' });
+    }
+    updates.walletAddress = walletAddress;
+  }
+
+  const updated = updateBeneficiary(req.params.studentId, updates);
   if (!updated) {
     return res.status(404).json({ error: 'Beneficiary not found' });
   }

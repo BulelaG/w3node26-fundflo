@@ -1,6 +1,7 @@
 const express = require('express');
 const router = express.Router();
-const { getAuditLogs, getProgrammes, getBeneficiaries, getSchedules, state } = require('../data/store');
+const { getAuditLogs, getProgrammes, getBeneficiaries, getSchedules } = require('../data/store');
+const { XRP_TO_ZAR_RATE, xrpToZar } = require('../config/currency');
 
 // GET /api/audit-logs
 router.get('/audit-logs', (req, res) => {
@@ -32,14 +33,14 @@ router.get('/analytics', (req, res) => {
   const totalRemainingXRP = programmes.reduce((sum, p) => sum + p.remainingBudget, 0);
   const totalDisbursedXRP = totalAllocatedXRP - totalRemainingXRP;
 
-  // Real-world South African financial conversion: 1 XRP ~ R25 ZAR
-  const totalAllocatedZAR = totalAllocatedXRP * 25;
-  const totalDisbursedZAR = totalDisbursedXRP * 25;
+  // Indicative conversion, shared with the client via config/currency.js
+  const totalAllocatedZAR = xrpToZar(totalAllocatedXRP);
+  const totalDisbursedZAR = xrpToZar(totalDisbursedXRP);
 
   // Middleman Rent Elimination Metric
   // Fintech direct payment providers (eZaga, Coinvest) charged R29/student/month + R10/withdrawal
   const traditionalFeePerDisbursement = 29.00;
-  const xrplNetworkFeePerDisbursement = 0.0003; // 0.000012 XRP * R25
+  const xrplNetworkFeePerDisbursement = xrpToZar(0.000012); // standard 12-drop fee in ZAR
   const verifiedDisbursementsCount = logs.filter(l => l.policyDecision === 'APPROVED' && l.txHash).length;
   const middlemanFeesExtractedUnderStatusQuo = verifiedDisbursementsCount * traditionalFeePerDisbursement;
   const feesIncurredOnXRPL = verifiedDisbursementsCount * xrplNetworkFeePerDisbursement;
@@ -48,7 +49,7 @@ router.get('/analytics', (req, res) => {
   // Fraud / Leakage Thwarted Metric
   const blockedAttempts = logs.filter(l => l.policyDecision === 'REJECTED');
   const leakageThwartedXRP = blockedAttempts.reduce((sum, l) => sum + (l.amount || 10), 0);
-  const leakageThwartedZAR = leakageThwartedXRP * 25;
+  const leakageThwartedZAR = xrpToZar(leakageThwartedXRP);
 
   // Breakdown by Institution
   const institutionMap = {};
@@ -71,10 +72,11 @@ router.get('/analytics', (req, res) => {
     name: k,
     students: institutionMap[k].count,
     disbursedXRP: institutionMap[k].disbursedXRP,
-    disbursedZAR: institutionMap[k].disbursedXRP * 25
+    disbursedZAR: xrpToZar(institutionMap[k].disbursedXRP)
   }));
 
   res.json({
+    xrpToZarRate: XRP_TO_ZAR_RATE,
     totalAllocatedXRP,
     totalAllocatedZAR,
     totalDisbursedXRP,

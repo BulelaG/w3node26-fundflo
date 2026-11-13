@@ -60,9 +60,16 @@ npm install
 # In the server/ directory:
 cp .env.example .env
 ```
-*(No initial edits needed; runs in zero-config development mode by default).*
+*Zero-config mode works out of the box. For demos, set `XRPL_ADMIN_SEED` to a pre-funded Testnet wallet so the treasury survives restarts. There is deliberately no fallback seed in the source code.*
 
-### 3. Run the Development Servers
+### 3. Run the Offline Test Suite (no network, ~200 ms)
+```bash
+cd server
+npm test            # Policy engine + agent unit tests via node:test (XRPL stubbed)
+npm run test:xrpl   # Optional: live XRPL Testnet end-to-end verification
+```
+
+### 4. Run the Development Servers
 Open two terminal windows:
 ```bash
 # Terminal 1: Backend API (Port 5000)
@@ -77,6 +84,14 @@ npm run dev
 Visit:
 * Frontend App: `http://localhost:5173`
 * Backend Healthcheck: `http://localhost:5000/api/health`
+
+---
+
+## ☁️ Deployment Notes
+* **Client:** Vercel (Vite) via `vercel.json`.
+* **API:** needs a long-lived process. The backend keeps budgets, schedules, the duplicate-payment lock and the audit trail in memory and holds a persistent WebSocket to XRPL. Serverless cold starts wipe that state. Use `render.yaml` (Render Blueprint) or any always-on Node host, then point `VITE_API_BASE_URL` at it.
+* **Before the demo:** pre-fund the admin wallet at the Testnet faucet and set `XRPL_ADMIN_SEED` in the host's environment. Never commit it.
+* **Currency:** the indicative XRP→ZAR rate is owned by the server (`XRP_TO_ZAR_RATE`, default 165) and exposed at `GET /api/config` and in `GET /api/analytics`.
 
 ---
 

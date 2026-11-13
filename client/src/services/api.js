@@ -223,17 +223,18 @@ const mockData = {
     rejectedAttempts: 1
   }),
   analytics: () => ({
+    xrpToZarRate: XRP_TO_ZAR_DEMO_RATE,
     totalAllocatedXRP: 50000,
-    totalAllocatedZAR: 1250000,
+    totalAllocatedZAR: 50000 * XRP_TO_ZAR_DEMO_RATE,
     totalDisbursedXRP: 10,
-    totalDisbursedZAR: 250,
-    middlemanFeesSavedZAR: 145,
-    leakageThwartedZAR: 2250,
+    totalDisbursedZAR: 10 * XRP_TO_ZAR_DEMO_RATE,
+    middlemanFeesSavedZAR: 29,
+    leakageThwartedZAR: 40 * XRP_TO_ZAR_DEMO_RATE,
     blockedAttemptsCount: 4,
     avgSettlementSeconds: 3.8,
     reconciliationRate: 100,
     institutionBreakdown: [
-      { name: 'WeThinkCode Cape Town', students: 1, disbursedXRP: 10, disbursedZAR: 250 },
+      { name: 'WeThinkCode Cape Town', students: 1, disbursedXRP: 10, disbursedZAR: 10 * XRP_TO_ZAR_DEMO_RATE },
       { name: 'WeThinkCode Johannesburg', students: 1, disbursedXRP: 0, disbursedZAR: 0 },
       { name: 'WeThinkCode Durban', students: 1, disbursedXRP: 0, disbursedZAR: 0 }
     ]
@@ -436,7 +437,8 @@ async function request(
   }
 
   if (!response.ok && !acceptedStatuses.includes(response.status)) {
-    if (response.status !== 403) updateApiMode(endpoint, 'OFFLINE')
+    // 403 (role) and 409 (agent cycle already running) are business responses, not outages
+    if (response.status !== 403 && response.status !== 409) updateApiMode(endpoint, 'OFFLINE')
     const errorData = await response.json().catch(() => ({}))
     throw new Error(errorData.error || errorData.message || `Request failed with status ${response.status}`)
   }

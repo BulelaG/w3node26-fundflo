@@ -5,15 +5,17 @@ const { getBeneficiaryById, getSchedules, getScheduleById, state } = require('..
 
 // POST /api/disbursements/validate-and-pay
 router.post('/disbursements/validate-and-pay', async (req, res) => {
-  const { programmeId, studentId, amount, scheduleId } = req.body;
+  const { programmeId, studentId, scheduleId } = req.body || {};
+  const amount = Number(req.body && req.body.amount);
 
-  if (!programmeId || !studentId || !amount || !scheduleId) {
+  if (!programmeId || !studentId || !scheduleId || req.body.amount === undefined) {
     return res.status(400).json({
       error: 'Missing required parameters: programmeId, studentId, amount, scheduleId are required.'
     });
   }
 
   try {
+    // Non-numeric or non-positive amounts are rejected by the policy engine with ERR_INVALID_AMOUNT
     const result = await processDisbursement({ programmeId, studentId, amount, scheduleId });
     if (result.approved && result.executed) {
       return res.status(200).json({

@@ -45,12 +45,14 @@ async function getAdminWallet() {
   const xrpl = await getXRPL();
   const client = await getXRPLClient();
 
-  const seed = process.env.XRPL_ADMIN_SEED || 'sEdSbGTXz24CBT8HXVhFiRXKpG5zfvV';
+  const seed = (process.env.XRPL_ADMIN_SEED || '').trim();
   if (seed) {
-    console.log('[XRPL] Loading Admin Wallet from seed...');
+    console.log('[XRPL] Loading Admin Wallet from XRPL_ADMIN_SEED...');
     adminWallet = xrpl.Wallet.fromSeed(seed);
   } else {
-    console.log('[XRPL] No XRPL_ADMIN_SEED found in environment. Generating & auto-funding new Admin Wallet from Testnet Faucet...');
+    // Seeds are never hardcoded in source. Without one we fall back to a throwaway
+    // faucet wallet: fine locally, but it means a fresh treasury on every restart.
+    console.warn('[XRPL] WARNING: XRPL_ADMIN_SEED is not set. Generating a throwaway Admin Wallet from the Testnet faucet. Set XRPL_ADMIN_SEED for a persistent treasury.');
     const fundResult = await client.fundWallet();
     adminWallet = fundResult.wallet;
     console.log(`[XRPL] Admin Wallet funded! Address: ${adminWallet.address} (Balance: ${fundResult.balance} XRP)`);

@@ -33,8 +33,14 @@ const POLICY_ERRORS = {
   EXCEEDS_STUDENT_CAP: 'ERR_EXCEEDS_STUDENT_ALLOWANCE_CAP',
   INSUFFICIENT_BUDGET: 'ERR_INSUFFICIENT_PROGRAMME_BUDGET',
   DUPLICATE_PAYMENT: 'ERR_DUPLICATE_PAYMENT',
-  SCHEDULE_NOT_FOUND: 'ERR_SCHEDULE_NOT_FOUND'
+  SCHEDULE_NOT_FOUND: 'ERR_SCHEDULE_NOT_FOUND',
+  INVALID_AMOUNT: 'ERR_INVALID_AMOUNT',
+  LEDGER_EXECUTION_FAILED: 'ERR_LEDGER_EXECUTION_FAILED'
 };
+
+// XRPL classic address: base58 (no 0, O, I, l), starts with 'r', 25-35 chars.
+const XRPL_ADDRESS_REGEX = /^r[1-9A-HJ-NP-Za-km-z]{24,34}$/;
+const isValidXrplAddress = (addr) => typeof addr === 'string' && XRPL_ADDRESS_REGEX.test(addr);
 
 /**
  * Pure policy evaluation - checks mandate rules independently
@@ -48,6 +54,15 @@ const POLICY_ERRORS = {
  */
 function evaluatePolicy(paymentProposal) {
   const { programmeId, studentId, amount, scheduleId } = paymentProposal;
+
+  // 0. Amount Sanity Check (a NaN, string or negative amount must never reach the ledger)
+  if (typeof amount !== 'number' || !Number.isFinite(amount) || amount <= 0) {
+    return {
+      isValid: false,
+      reasonCode: POLICY_ERRORS.INVALID_AMOUNT,
+      message: `Proposed amount (${String(amount)}) is not a positive finite number of XRP.`
+    };
+  }
 
   // 1. Programme Existence Check
   const programme = getProgrammeById(programmeId);
@@ -88,7 +103,7 @@ function evaluatePolicy(paymentProposal) {
   }
 
   // 5. Valid XRPL Destination Address Check
-  if (!beneficiary.walletAddress || !beneficiary.walletAddress.startsWith('r')) {
+  if (!isValidXrplAddress(beneficiary.walletAddress)) {
     return {
       isValid: false,
       reasonCode: POLICY_ERRORS.MISSING_WALLET,
@@ -210,11 +225,24 @@ async function processDisbursement(paymentProposal) {
 
   // Step 3: Forward approved request to XRPL Transaction Service
   console.log(`[Policy Engine] APPROVED payment for ${studentId}. Forwarding to XRPL Transaction Service...`);
-  const txResult = await executePayment({
-    destinationAddress: beneficiary.walletAddress,
-    amountXRP: amount,
-    reference: `${scheduleId}:${studentId}`
-  });
+  let txResult;
+  try {
+    txResult = await executePayment({
+      destinationAddress: beneficiary.walletAddress,
+      amountXRP: amount,
+      reference: `${scheduleId}:${studentId}`
+    });
+  } catch (error) {
+    // Network drop, faucet exhaustion, or a tec/tem result thrown by submitAndWait.
+    // Never leave the schedule locked in PROCESSING with no audit record.
+    console.error(`[Policy Engine] Ledger execution threw for ${scheduleId}: ${error.message}`);
+    txResult = {
+      success: false,
+      error: error.message,
+      resultCode: (error.data && error.data.result && error.data.result.meta && error.data.result.meta.TransactionResult) || 'SUBMISSION_ERROR',
+      txHash: (error.data && error.data.result && error.data.result.hash) || null
+    };
+  }
 
   if (txResult.success) {
     // Step 4A: Deduct budget and finalize verified status
@@ -267,7 +295,7 @@ async function processDisbursement(paymentProposal) {
       amount,
       decisionId,
       policyVersion: POLICY_VERSION,
-      reasonCode: 'ERR_LEDGER_EXECUTION_FAILED',
+      reasonCode: POLICY_ERRORS.LEDGER_EXECUTION_FAILED,
       policyDecision: 'APPROVED',
       rejectionReason: txResult.error,
       txHash: txResult.txHash,
@@ -279,7 +307,7 @@ async function processDisbursement(paymentProposal) {
       executed: false,
       decisionId,
       policyVersion: POLICY_VERSION,
-      reasonCode: 'ERR_LEDGER_EXECUTION_FAILED',
+      reasonCode: POLICY_ERRORS.LEDGER_EXECUTION_FAILED,
       error: txResult.error
     };
   }
@@ -287,6 +315,8 @@ async function processDisbursement(paymentProposal) {
 
 module.exports = {
   POLICY_ERRORS,
+  POLICY_VERSION,
+  isValidXrplAddress,
   evaluatePolicy,
   processDisbursement
 };

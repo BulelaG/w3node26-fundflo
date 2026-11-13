@@ -6,9 +6,9 @@
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
-    "test": "node tests/verifyMilestone2.js",
+    "test": "node --test tests/policyEngine.test.js tests/agent.test.js",
+    "test:unit": "node --test tests/policyEngine.test.js tests/agent.test.js",
     "test:roles": "node tests/verifyRoleMiddleware.js",
-    "test:policy": "node tests/verifyMilestone2.js",
     "test:xrpl": "node tests/verifyMilestone2.js"
   },
   "dependencies": {
@@ -17,5 +17,8 @@
     "express": "^4.21.1",
     "mongoose": "^8.8.1",
     "xrpl": "^3.0.0"
+  },
+  "engines": {
+    "node": ">=20"
   }
 }

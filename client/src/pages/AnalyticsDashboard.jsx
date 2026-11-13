@@ -45,16 +45,16 @@ export default function AnalyticsDashboard() {
 
   const data = analytics || {
     totalAllocatedXRP: 50000,
-    totalAllocatedZAR: 1250000,
+    totalAllocatedZAR: 8250000,
     totalDisbursedXRP: 10,
-    totalDisbursedZAR: 250,
-    middlemanFeesSavedZAR: 145,
-    leakageThwartedZAR: 2250,
+    totalDisbursedZAR: 1650,
+    middlemanFeesSavedZAR: 29,
+    leakageThwartedZAR: 6600,
     blockedAttemptsCount: 4,
     avgSettlementSeconds: 3.8,
     reconciliationRate: 100,
     institutionBreakdown: [
-      { name: 'WeThinkCode Cape Town', students: 1, disbursedXRP: 10, disbursedZAR: 250 },
+      { name: 'WeThinkCode Cape Town', students: 1, disbursedXRP: 10, disbursedZAR: 1650 },
       { name: 'WeThinkCode Johannesburg', students: 1, disbursedXRP: 0, disbursedZAR: 0 },
       { name: 'WeThinkCode Durban', students: 1, disbursedXRP: 0, disbursedZAR: 0 }
     ]

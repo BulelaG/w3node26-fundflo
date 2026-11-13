@@ -4,6 +4,22 @@
 
 ---
 
+## 0. Shared Configuration
+
+### `GET /config`
+Financial constants owned by the server so the client never hardcodes them.
+**Response (200):**
+```json
+{ "xrpToZarRate": 165, "currency": "XRP", "network": "testnet" }
+```
+
+### Policy Reason Codes
+`ERR_INVALID_AMOUNT`, `ERR_PROGRAMME_NOT_FOUND`, `ERR_PROGRAMME_PAUSED`, `ERR_UNAUTHORIZED_BENEFICIARY`, `ERR_BENEFICIARY_INACTIVE`, `ERR_MISSING_WALLET_ADDRESS`, `ERR_EXCEEDS_STUDENT_ALLOWANCE_CAP`, `ERR_INSUFFICIENT_PROGRAMME_BUDGET`, `ERR_DUPLICATE_PAYMENT`, `ERR_SCHEDULE_NOT_FOUND`, `ERR_LEDGER_EXECUTION_FAILED`.
+
+`POST /agent/trigger` returns **409** `ERR_CYCLE_IN_PROGRESS` if a cycle is already running. Mutating routes validate bodies and return **400** with a human-readable `error`.
+
+---
+
 ## 1. Programmes (Mandates)
 
 ### `GET /programmes`

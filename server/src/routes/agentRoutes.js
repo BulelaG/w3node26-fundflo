@@ -9,7 +9,7 @@ router.post('/agent/trigger', requireAdminRole, async (req, res) => {
     const report = await agentInstance.runCycle();
     res.json(report);
   } catch (err) {
-    res.status(500).json({ error: err.message });
+    res.status(err.status || 500).json({ error: err.message, code: err.code || 'ERR_AGENT_CYCLE_FAILED' });
   }
 });
 
