@@ -13,6 +13,10 @@ const PORT = process.env.PORT || 5000;
 app.use(cors());
 app.use(express.json());
 
+// Ping Endpoint (minimal test)
+app.get('/api/ping', (req, res) => res.json({ ping: 'pong', time: new Date().toISOString() }));
+app.get('/ping', (req, res) => res.json({ ping: 'pong', time: new Date().toISOString() }));
+
 // Health Check Endpoint (handles both /api/health and /health)
 const handleHealth = (req, res) => {
   res.status(200).json({
