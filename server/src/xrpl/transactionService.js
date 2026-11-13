@@ -3,8 +3,7 @@
  * Executes signed payment transactions on XRPL Testnet and validates ledger finality.
  */
 
-const xrpl = require('xrpl');
-const { getXRPLClient, getAdminWallet } = require('./xrplClient');
+const { getXRPL, getXRPLClient, getAdminWallet } = require('./xrplClient');
 
 /**
  * Execute an approved payment from Admin Wallet to Beneficiary Wallet on XRPL Testnet
@@ -24,6 +23,7 @@ async function executePayment({ destinationAddress, amountXRP, reference }) {
     throw new Error(`Invalid payment amount: ${amountXRP}`);
   }
 
+  const xrpl = await getXRPL();
   const client = await getXRPLClient();
   const adminWallet = await getAdminWallet();
 
@@ -58,34 +58,22 @@ async function executePayment({ destinationAddress, amountXRP, reference }) {
     const response = await client.submitAndWait(paymentTx, { wallet: adminWallet });
 
     const result = response.result;
-    const resultCode = result.meta && typeof result.meta === 'object' ? result.meta.TransactionResult : null;
+    const resultCode = result.meta.TransactionResult;
+    const isSuccess = resultCode === 'tesSUCCESS';
 
     console.log(`[XRPL Transaction] Transaction processed! Result code: ${resultCode}, Hash: ${result.hash}`);
 
-    if (resultCode === 'tesSUCCESS') {
-      return {
-        success: true,
-        txHash: result.hash,
-        resultCode: resultCode,
-        ledgerIndex: result.ledger_index,
-        feeDrops: result.Fee,
-        explorerUrl: `https://testnet.xrpl.org/transactions/${result.hash}`
-      };
-    } else {
-      return {
-        success: false,
-        txHash: result.hash,
-        resultCode: resultCode,
-        error: `Ledger execution failed with code: ${resultCode}`
-      };
-    }
-  } catch (error) {
-    console.error('[XRPL Transaction] Submission failed:', error.message);
     return {
-      success: false,
-      txHash: null,
-      error: error.message
+      success: isSuccess,
+      resultCode,
+      txHash: result.hash,
+      ledgerIndex: result.ledger_index,
+      fee: xrpl.dropsToXrp(result.Fee),
+      explorerUrl: `https://testnet.xrpl.org/transactions/${result.hash}`
     };
+  } catch (error) {
+    console.error('[XRPL Transaction] Error executing payment on Testnet:', error.message);
+    throw new Error(`XRPL Submission Failed: ${error.message}`);
   }
 }
 

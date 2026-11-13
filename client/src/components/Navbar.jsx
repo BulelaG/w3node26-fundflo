@@ -40,7 +40,7 @@ export default function Navbar({
       <div className="container" style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: 0 }}>
         {/* Brand */}
         <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-          <div style={{
+          {/* <div style={{
             width: '60px',
             height: '60px',
             borderRadius: '12px',
@@ -52,7 +52,7 @@ export default function Navbar({
             boxShadow: '0 0 20px rgba(5, 150, 105, 0.28)'
           }}>
             <ShieldCheck size={24} strokeWidth={2.5} />
-          </div>
+          </div> */}
           <div>
             <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
               <span className="font-display" style={{ fontSize: '1.35rem', fontWeight: '700', letterSpacing: '-0.02em', color: '#ffffff' }}>

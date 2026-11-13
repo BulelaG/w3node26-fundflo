@@ -417,9 +417,6 @@ strong, b {
   color: #ffffff !important;
 }
 
-p, span, label, div {
-  /* Prevent dark text on dark background */
-}
 
 .metric-label,
 .panel-heading p,

@@ -3,7 +3,15 @@
  * Connects to XRPL Testnet via WebSocket and manages server-side signing keys.
  */
 
-const xrpl = require('xrpl');
+let xrplModule = null;
+
+async function getXRPL() {
+  if (!xrplModule) {
+    const mod = await import('xrpl');
+    xrplModule = mod.default || mod;
+  }
+  return xrplModule;
+}
 
 const TESTNET_URL = process.env.XRPL_NODE_URL || 'wss://s.altnet.rippletest.net:51233';
 
@@ -14,6 +22,7 @@ let adminWallet = null;
  * Get or initialize the XRPL WebSocket Client
  */
 async function getXRPLClient() {
+  const xrpl = await getXRPL();
   if (!clientInstance) {
     clientInstance = new xrpl.Client(TESTNET_URL);
   }
@@ -33,6 +42,7 @@ async function getAdminWallet() {
     return adminWallet;
   }
 
+  const xrpl = await getXRPL();
   const client = await getXRPLClient();
 
   const seed = process.env.XRPL_ADMIN_SEED || 'sEdSbGTXz24CBT8HXVhFiRXKpG5zfvV';
@@ -71,6 +81,7 @@ async function getAccountLedgerInfo(address) {
     return { error: 'Invalid XRPL address format' };
   }
 
+  const xrpl = await getXRPL();
   const client = await getXRPLClient();
   try {
     const response = await client.request({
@@ -112,6 +123,7 @@ async function disconnectXRPL() {
 }
 
 module.exports = {
+  getXRPL,
   getXRPLClient,
   getAdminWallet,
   createAndFundStudentWallet,
