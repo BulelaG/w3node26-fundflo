@@ -1,4 +1,10 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import {
+  useCallback,
+  useEffect,
+  useMemo,
+  useState,
+  useSyncExternalStore,
+} from 'react'
 import {
   Activity,
   ArrowDownRight,
@@ -28,9 +34,11 @@ import {
   getAuditLogs,
   getBeneficiaries,
   getHealth,
+  getApiMode,
   getProgrammes,
   getSchedules,
   getStudentStatus,
+  subscribeToApiMode,
   triggerAgent,
   toggleProgrammePause,
 } from './services/api.js'
@@ -80,11 +88,23 @@ function getStudentCap(student, overrides) {
     : Number(student.monthlyAllowance) || 0
 }
 
+function isWalletApproved(student, overrides) {
+  const override = overrides[student.studentId]
+  if (typeof override === 'boolean') return override
+  return (student.status || '').toUpperCase() === 'ACTIVE'
+}
+
 function StatusBadge({ status }) {
-  const normalized = (status || 'UNKNOWN').toLowerCase().replaceAll('_', '-')
+  const normalized = (status || 'UNKNOWN')
+    .toLowerCase()
+    .replaceAll('_', '-')
+    .replaceAll(' ', '-')
   const label = (status || 'Unknown').replaceAll('_', ' ')
   const icon =
-    normalized.includes('reject') || normalized.includes('paused') ? (
+    normalized.includes('reject') ||
+    normalized.includes('paused') ||
+    normalized.includes('blocked') ||
+    normalized.includes('halt') ? (
       <CircleAlert size={13} />
     ) : normalized.includes('pending') ? (
       <Clock3 size={13} />
@@ -299,6 +319,8 @@ function PolicyControls({
   beneficiaries,
   capOverrides,
   onCapChange,
+  whitelistOverrides,
+  onWhitelistChange,
   currency,
   killSwitchActive,
   onToggleKillSwitch,
@@ -310,7 +332,7 @@ function PolicyControls({
       <div className="panel-heading policy-controls-heading">
         <div>
           <div className="eyebrow">MANDATE &amp; POLICY CONTROLS</div>
-          <h2>Independent policy guardrails</h2>
+          <h2>Policy &amp; Mandate Controls</h2>
           <p>Set per-student monthly limits and stop autonomous execution instantly.</p>
         </div>
         <span className="demo-control-tag">
@@ -322,8 +344,9 @@ function PolicyControls({
       <div className="policy-controls-grid">
         <div className="cap-control-list">
           <div className="cap-list-heading">
-            <span>BENEFICIARY</span>
-            <span>MONTHLY CAP · {currency}</span>
+            <span>BENEFICIARY / APPROVED WALLET</span>
+            <span>MAX CAP · {currency}</span>
+            <span>WHITELIST</span>
           </div>
           {beneficiaries.length ? (
             beneficiaries.map((student) => (
@@ -339,6 +362,12 @@ function PolicyControls({
                   <span>
                     <strong>{student.fullName}</strong>
                     <small>{student.studentId}</small>
+                    <small
+                      className="cap-wallet-address"
+                      title={student.walletAddress || 'No wallet on file'}
+                    >
+                      {student.walletAddress || 'No wallet on file'}
+                    </small>
                   </span>
                 </span>
                 <label className="cap-input-wrap">
@@ -359,6 +388,40 @@ function PolicyControls({
                   />
                   <span>{currency}</span>
                 </label>
+                <div className="whitelist-control">
+                  <span
+                    className={`whitelist-status ${
+                      isWalletApproved(student, whitelistOverrides)
+                        ? 'approved'
+                        : 'not-approved'
+                    }`}
+                  >
+                    <span />
+                    {isWalletApproved(student, whitelistOverrides)
+                      ? 'Approved'
+                      : 'Not approved'}
+                  </span>
+                  <button
+                    className="whitelist-action-button"
+                    type="button"
+                    disabled={!student.walletAddress}
+                    aria-label={`${
+                      isWalletApproved(student, whitelistOverrides)
+                        ? 'Revoke'
+                        : 'Approve'
+                    } ${student.walletAddress || `wallet for ${student.fullName}`}`}
+                    onClick={() =>
+                      onWhitelistChange(
+                        student.studentId,
+                        !isWalletApproved(student, whitelistOverrides),
+                      )
+                    }
+                  >
+                    {isWalletApproved(student, whitelistOverrides)
+                      ? 'Revoke'
+                      : 'Approve'}
+                  </button>
+                </div>
               </div>
             ))
           ) : (
@@ -367,8 +430,8 @@ function PolicyControls({
             </div>
           )}
           <div className="cap-control-note">
-            Edits apply to policy demos in this session; the API does not yet
-            persist individual caps.
+            Cap and whitelist edits apply to this demo session; the API does
+            not yet persist individual policy changes.
           </div>
         </div>
 
@@ -487,17 +550,22 @@ function AgentCard({
       )}
 
       {policyTestResult && (
-        <div className="policy-test-result" role="status">
+        <div
+          className="policy-test-result"
+          role="alert"
+          aria-live="assertive"
+        >
           <span className="policy-test-result-icon">
             <ShieldCheck size={16} />
           </span>
           <span>
-            <strong>POLICY BLOCKED · {policyTestResult.studentId}</strong>
+            <strong>INDEPENDENT POLICY ENGINE · REJECTED</strong>
             <small>
-              {formatCurrency(policyTestResult.amount)} exceeds cap{' '}
-              {formatCurrency(policyTestResult.cap)}
+              Mock request {policyTestResult.scheduleId} for{' '}
+              {policyTestResult.studentId}: {formatCurrency(policyTestResult.amount)}{' '}
+              exceeds the {formatCurrency(policyTestResult.cap)} student cap.
             </small>
-            <code>{policyTestResult.reason}</code>
+            <code>Audit reason: {policyTestResult.reason}</code>
           </span>
         </div>
       )}
@@ -539,22 +607,31 @@ function AgentCard({
           disabled={isRunning}
         >
           <ShieldCheck size={15} />
-          Test Policy Block
+          Simulate Policy Violation
         </button>
       </div>
       <div className="agent-footnote">
         <ShieldCheck size={14} />
-        Policy test is a simulation; it never submits a payment
+        Simulation only — no payment is submitted
       </div>
     </section>
   )
 }
 
-function ScheduleTable({ schedules, beneficiaries, currency }) {
+function ScheduleTable({
+  schedules,
+  beneficiaries,
+  currency,
+  killSwitchActive,
+  whitelistOverrides,
+}) {
   const beneficiaryById = useMemo(
     () => new Map(beneficiaries.map((student) => [student.studentId, student])),
     [beneficiaries],
   )
+  const pendingCount = schedules.filter(
+    (schedule) => (schedule.status || '').toUpperCase() === 'PENDING',
+  ).length
 
   return (
     <section className="panel schedule-panel">
@@ -563,7 +640,11 @@ function ScheduleTable({ schedules, beneficiaries, currency }) {
           <div className="eyebrow">DISBURSEMENT PIPELINE</div>
           <h2>Scheduled payments</h2>
         </div>
-        <span className="panel-count">{schedules.length} records</span>
+        <span className={`panel-count ${killSwitchActive ? 'is-halted' : ''}`}>
+          {killSwitchActive && pendingCount
+            ? `${pendingCount} runs halted`
+            : `${schedules.length} records`}
+        </span>
       </div>
       {schedules.length ? (
         <div className="table-scroll">
@@ -579,6 +660,19 @@ function ScheduleTable({ schedules, beneficiaries, currency }) {
             <tbody>
               {schedules.map((schedule) => {
                 const student = beneficiaryById.get(schedule.studentId)
+                const isPending =
+                  (schedule.status || '').toUpperCase() === 'PENDING'
+                const isHalted = killSwitchActive && isPending
+                const whitelistBlocked =
+                  !killSwitchActive &&
+                  isPending &&
+                  student &&
+                  !isWalletApproved(student, whitelistOverrides)
+                const displayedStatus = isHalted
+                  ? 'HALTED'
+                  : whitelistBlocked
+                    ? 'BLOCKED'
+                    : schedule.status
                 return (
                   <tr key={schedule.scheduleId}>
                     <td>
@@ -604,7 +698,17 @@ function ScheduleTable({ schedules, beneficiaries, currency }) {
                       {formatCurrency(schedule.amount, currency)}
                     </td>
                     <td>
-                      <StatusBadge status={schedule.status} />
+                      <StatusBadge status={displayedStatus} />
+                      {isHalted && (
+                        <small className="run-state-note">
+                          Emergency kill-switch engaged
+                        </small>
+                      )}
+                      {whitelistBlocked && (
+                        <small className="run-state-note is-policy-block">
+                          ERR_BENEFICIARY_NOT_WHITELISTED
+                        </small>
+                      )}
                     </td>
                   </tr>
                 )
@@ -619,7 +723,11 @@ function ScheduleTable({ schedules, beneficiaries, currency }) {
         <span>
           <ShieldCheck size={14} /> All payments are policy-gated
         </span>
-        <span>Schedule data refreshes with the dashboard</span>
+        <span>
+          {killSwitchActive
+            ? 'Disable the kill-switch to resume pending runs'
+            : 'Schedule data refreshes with the dashboard'}
+        </span>
       </div>
     </section>
   )
@@ -720,6 +828,8 @@ function AdminDashboard({
   policyTestResult,
   capOverrides,
   onCapChange,
+  whitelistOverrides,
+  onWhitelistChange,
   killSwitchActive,
   onToggleKillSwitch,
   isTogglingKillSwitch,
@@ -797,9 +907,13 @@ function AdminDashboard({
           tone="violet"
         />
         <MetricCard
-          label="Pending schedules"
+          label={killSwitchActive ? 'Scheduled runs halted' : 'Pending schedules'}
           value={pendingCount}
-          detail="Awaiting agent evaluation"
+          detail={
+            killSwitchActive
+              ? 'Emergency kill-switch engaged'
+              : 'Awaiting agent evaluation'
+          }
           icon={Clock3}
           tone="amber"
         />
@@ -822,6 +936,8 @@ function AdminDashboard({
         beneficiaries={beneficiaries}
         capOverrides={capOverrides}
         onCapChange={onCapChange}
+        whitelistOverrides={whitelistOverrides}
+        onWhitelistChange={onWhitelistChange}
         currency={currency}
         killSwitchActive={killSwitchActive}
         onToggleKillSwitch={onToggleKillSwitch}
@@ -834,6 +950,8 @@ function AdminDashboard({
           schedules={schedules}
           beneficiaries={beneficiaries}
           currency={currency}
+          killSwitchActive={killSwitchActive}
+          whitelistOverrides={whitelistOverrides}
         />
         <AuditPanel auditLogs={auditLogs} currency={currency} />
       </div>
@@ -1087,7 +1205,6 @@ function StudentPortal({ beneficiaries, isLoadingBeneficiaries }) {
 
 function App() {
   const [activeView, setActiveView] = useState('admin')
-  const [health, setHealth] = useState(null)
   const [programmes, setProgrammes] = useState([])
   const [beneficiaries, setBeneficiaries] = useState([])
   const [schedules, setSchedules] = useState([])
@@ -1097,6 +1214,7 @@ function App() {
   const [triggerError, setTriggerError] = useState('')
   const [policyTestResult, setPolicyTestResult] = useState(null)
   const [capOverrides, setCapOverrides] = useState({})
+  const [whitelistOverrides, setWhitelistOverrides] = useState({})
   const [killSwitchOverride, setKillSwitchOverride] = useState(null)
   const [isTogglingKillSwitch, setIsTogglingKillSwitch] = useState(false)
   const [killSwitchError, setKillSwitchError] = useState('')
@@ -1105,11 +1223,16 @@ function App() {
   const [isRefreshing, setIsRefreshing] = useState(false)
   const [isTriggering, setIsTriggering] = useState(false)
   const [lastUpdated, setLastUpdated] = useState(null)
+  const apiMode = useSyncExternalStore(
+    subscribeToApiMode,
+    getApiMode,
+    getApiMode,
+  )
 
   const applyDashboardResults = useCallback((results) => {
     const errors = []
     const setters = [
-      [setHealth, 'health status'],
+      [null, 'health status'],
       [setProgrammes, 'programmes'],
       [setBeneficiaries, 'beneficiaries'],
       [setSchedules, 'schedules'],
@@ -1118,7 +1241,7 @@ function App() {
 
     results.forEach((result, index) => {
       if (result.status === 'fulfilled') {
-        setters[index][0](result.value)
+        if (setters[index][0]) setters[index][0](result.value)
       } else {
         errors.push(`${setters[index][1]}: ${result.reason.message}`)
       }
@@ -1166,9 +1289,22 @@ function App() {
 
   const killSwitchActive =
     killSwitchOverride ?? Boolean(programmes[0]?.isPaused)
+  const connectionStatus = {
+    CONNECTING: { label: 'CONNECTING TO API', className: 'is-connecting' },
+    LIVE: { label: 'LIVE EXPRESS API', className: 'is-online' },
+    MOCK: { label: 'MOCK DEMO MODE', className: 'is-mock' },
+    OFFLINE: { label: 'API OFFLINE', className: 'is-offline' },
+  }[apiMode]
 
   function handleCapChange(studentId, value) {
     setCapOverrides((current) => ({ ...current, [studentId]: value }))
+  }
+
+  function handleWhitelistChange(studentId, isApproved) {
+    setWhitelistOverrides((current) => ({
+      ...current,
+      [studentId]: isApproved,
+    }))
   }
 
   async function handleToggleKillSwitch() {
@@ -1194,7 +1330,7 @@ function App() {
     }
   }
 
-  function handleTestPolicyBlock() {
+  function handleSimulatePolicyViolation() {
     const overLimitSchedule = schedules.find((schedule) => {
       const student = beneficiaries.find(
         (beneficiary) => beneficiary.studentId === schedule.studentId,
@@ -1222,7 +1358,7 @@ function App() {
     const event = {
       _id: eventId,
       timestamp: new Date().toISOString(),
-      eventType: 'POLICY_TEST_BLOCK',
+      eventType: 'POLICY_VIOLATION_SIMULATION',
       studentId: student.studentId,
       programmeId:
         programmes[0]?.programmeId || student.programmeId || 'DEMO-PROGRAMME',
@@ -1299,7 +1435,7 @@ function App() {
       <Sidebar
         activeView={activeView}
         onNavigate={setActiveView}
-        apiOnline={health?.status === 'ONLINE'}
+        apiOnline={apiMode === 'LIVE'}
       />
       <div className="workspace">
         <div className="topbar">
@@ -1311,9 +1447,14 @@ function App() {
             </strong>
           </div>
           <div className="topbar-actions">
-            <span className={`environment-pill ${health?.status === 'ONLINE' ? 'is-online' : ''}`}>
+            <span
+              className={`environment-pill ${connectionStatus.className}`}
+              role="status"
+              aria-live="polite"
+              title="Connection mode reflects live API responses and mock fallbacks."
+            >
               <span />
-              {health?.status === 'ONLINE' ? 'API connected' : 'DEMO MODE'}
+              {connectionStatus.label}
             </span>
             <IconButton type="button" aria-label="Notifications">
               <Bell size={17} />
@@ -1337,6 +1478,8 @@ function App() {
             policyTestResult={policyTestResult}
             capOverrides={capOverrides}
             onCapChange={handleCapChange}
+            whitelistOverrides={whitelistOverrides}
+            onWhitelistChange={handleWhitelistChange}
             killSwitchActive={killSwitchActive}
             onToggleKillSwitch={handleToggleKillSwitch}
             isTogglingKillSwitch={isTogglingKillSwitch}
@@ -1345,7 +1488,7 @@ function App() {
             lastUpdated={lastUpdated}
             onRefresh={() => refreshDashboard(true)}
             onTrigger={handleAgentTrigger}
-            onTestPolicyBlock={handleTestPolicyBlock}
+            onTestPolicyBlock={handleSimulatePolicyViolation}
           />
         ) : (
           <StudentPortal
