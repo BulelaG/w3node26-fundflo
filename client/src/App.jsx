@@ -2,6 +2,7 @@ import {
   useCallback,
   useEffect,
   useMemo,
+  useRef,
   useState,
   useSyncExternalStore,
 } from 'react'
@@ -11,7 +12,6 @@ import {
   ArrowUpRight,
   BadgeCheck,
   Check,
-  ChevronDown,
   CircleAlert,
   Clock3,
   Copy,
@@ -66,6 +66,38 @@ const DEMO_BUDGET_STUDENT_ID = 'STU-DEMO-BUDGET'
 const DEMO_DUPLICATE_STUDENT_ID = 'STU-DEMO-DUPLICATE'
 const DEMO_CAP_STUDENT_ID = 'STU-DEMO-CAP'
 const DEMO_PAUSED_STUDENT_ID = 'STU-DEMO-PAUSED'
+
+const VIEWS_BY_ROLE = {
+  cfo: ['admin', 'analytics', 'auditor'],
+  auditor: ['auditor', 'analytics'],
+  student: ['student'],
+}
+
+const STUDENT_IDS_BY_NAME = {
+  'sipho dlamini': 'STU-001',
+  'naledi khumalo': 'STU-002',
+  'thabo molefe': 'STU-003',
+  sipho: 'STU-001',
+  naledi: 'STU-002',
+  thabo: 'STU-003',
+}
+
+function getAllowedViews(role) {
+  return VIEWS_BY_ROLE[role] || []
+}
+
+function getStudentIdForSession(session) {
+  const normalizedName = String(session?.name || '').trim().toLowerCase()
+  const firstName = normalizedName.split(/\s+/)[0]
+  const knownStudentId =
+    STUDENT_IDS_BY_NAME[normalizedName] || STUDENT_IDS_BY_NAME[firstName]
+  if (knownStudentId) {
+    return session?.studentId && session.studentId !== knownStudentId
+      ? ''
+      : knownStudentId
+  }
+  return session?.studentId || ''
+}
 
 function fetchDashboardData() {
   return Promise.allSettled([
@@ -1083,9 +1115,8 @@ function AdminDashboard({
   )
 }
 
-function StudentPortal({ beneficiaries, isLoadingBeneficiaries }) {
-  const [selectedStudentId, setSelectedStudentId] = useState('')
-  const studentId = selectedStudentId || beneficiaries[0]?.studentId || ''
+function StudentPortal({ session }) {
+  const studentId = getStudentIdForSession(session)
   const [studentResult, setStudentResult] = useState({
     studentId: '',
     data: null,
@@ -1100,6 +1131,9 @@ function StudentPortal({ beneficiaries, isLoadingBeneficiaries }) {
     let active = true
     getStudentStatus(studentId)
       .then((response) => {
+        if (response.studentId !== studentId) {
+          throw new Error('The student record does not match your signed-in account.')
+        }
         if (active) {
           setStudentResult({
             studentId,
@@ -1147,7 +1181,9 @@ function StudentPortal({ beneficiaries, isLoadingBeneficiaries }) {
     !!studentId && studentResult.studentId !== studentId
   const student = studentResult.studentId === studentId ? studentResult.data : null
   const error = studentResult.studentId === studentId ? studentResult.error : ''
-  const disbursements = student?.disbursements || []
+  const disbursements = (student?.disbursements || []).filter(
+    (item) => item.studentId === studentId,
+  )
   const confirmingDisbursements = disbursements.filter((item) =>
     ['SUBMITTED', 'OUTCOME_PENDING', 'PROCESSING'].includes(
       (item.status || '').toUpperCase(),
@@ -1178,29 +1214,6 @@ function StudentPortal({ beneficiaries, isLoadingBeneficiaries }) {
         eyebrow="FUNDING ASSURANCE / BENEFICIARY"
         title="Student portal"
         description="A clear view of your funding, scheduled support, and verified ledger activity."
-        actions={
-          <label className="student-select-wrap">
-            <span className="sr-only">Select beneficiary</span>
-            <Users size={16} />
-            <select
-              value={studentId}
-              onChange={(event) => {
-                setSelectedStudentId(event.target.value)
-                setWalletCopyState('idle')
-                setWalletCopyError('')
-              }}
-              disabled={isLoadingBeneficiaries || !beneficiaries.length}
-            >
-              {!beneficiaries.length && <option value="">No beneficiaries</option>}
-              {beneficiaries.map((beneficiary) => (
-                <option key={beneficiary.studentId} value={beneficiary.studentId}>
-                  {beneficiary.fullName}
-                </option>
-              ))}
-            </select>
-            <ChevronDown size={15} />
-          </label>
-        }
       />
 
       {error && (
@@ -1210,7 +1223,7 @@ function StudentPortal({ beneficiaries, isLoadingBeneficiaries }) {
         </div>
       )}
 
-      {isLoading || isLoadingBeneficiaries ? (
+      {isLoading ? (
         <div className="portal-loading">
           <LoaderCircle className="spin" size={20} />
           Loading beneficiary details…
@@ -1410,9 +1423,9 @@ function StudentPortal({ beneficiaries, isLoadingBeneficiaries }) {
           </span>
           <h2>Beneficiary account unavailable</h2>
           <p>
-            {beneficiaries.length
-              ? 'Select a student account to view funding details.'
-              : 'Beneficiary records will appear here when available.'}
+            {studentId
+              ? 'Your beneficiary profile is unavailable. Contact your administrator.'
+              : 'This account is not linked to a beneficiary profile.'}
           </p>
         </section>
       )}
@@ -1427,7 +1440,10 @@ function App() {
       return saved ? JSON.parse(saved) : null
     } catch { return null }
   })
-  const [activeView, setActiveView] = useState('admin')
+  const sessionRole = session?.role
+  const [activeView, setActiveView] = useState(
+    () => getAllowedViews(session?.role)[0] || 'admin',
+  )
   const [programmes, setProgrammes] = useState([])
   const [beneficiaries, setBeneficiaries] = useState([])
   const [schedules, setSchedules] = useState([])
@@ -1453,17 +1469,48 @@ function App() {
     getApiMode,
     getApiMode,
   )
+  const sessionRoleRef = useRef(sessionRole)
 
   function handleLogin(account) {
+    const allowedViews = getAllowedViews(account.role)
+    if (!allowedViews.length) return
+
     sessionStorage.setItem('ff_session', JSON.stringify(account))
+    sessionRoleRef.current = account.role
     setSession(account)
-    setActiveView(account.landingView || 'admin')
+    setIsLoading(account.role === 'cfo')
+    setActiveView(
+      allowedViews.includes(account.landingView)
+        ? account.landingView
+        : allowedViews[0],
+    )
   }
 
   function handleLogout() {
     sessionStorage.removeItem('ff_session')
+    sessionRoleRef.current = null
     setSession(null)
     setActiveView('admin')
+    setIsLoading(false)
+    setProgrammes([])
+    setBeneficiaries([])
+    setSchedules([])
+    setAuditLogs([])
+    setTriggerLogs([])
+    setTriggerResult(null)
+    setPolicyTestResult(null)
+    setCapOverrides({})
+    setWhitelistOverrides({})
+    setKillSwitchOverride(null)
+    setKillSwitchError('')
+    setDashboardError('')
+    setDemoResetNotice('')
+  }
+
+  function handleViewChange(view) {
+    if (getAllowedViews(session?.role).includes(view)) {
+      setActiveView(view)
+    }
   }
 
   const applyDashboardResults = useCallback((results) => {
@@ -1492,29 +1539,70 @@ function App() {
 
   const refreshDashboard = useCallback(
     async (showSpinner = true) => {
+      if (sessionRole !== 'cfo') return
       if (showSpinner) setIsRefreshing(true)
       const results = await fetchDashboardData()
+      if (sessionRoleRef.current !== 'cfo') return
       applyDashboardResults(results)
     },
-    [applyDashboardResults],
+    [applyDashboardResults, sessionRole],
   )
 
   const refreshAudit = useCallback(async () => {
+    if (sessionRole !== 'cfo' && sessionRole !== 'auditor') return
     try {
-      setAuditLogs(await getAuditLogs())
+      const logs = await getAuditLogs()
+      if (
+        sessionRoleRef.current !== 'cfo' &&
+        sessionRoleRef.current !== 'auditor'
+      ) {
+        return
+      }
+      setAuditLogs(logs)
       setLastUpdated(new Date())
     } catch (error) {
       setDashboardError((current) =>
         current ? current : `Audit logs: ${error.message}`,
       )
     }
-  }, [])
+  }, [sessionRole])
 
   useEffect(() => {
-    fetchDashboardData().then(applyDashboardResults)
-    const intervalId = window.setInterval(refreshAudit, REFRESH_INTERVAL)
-    return () => window.clearInterval(intervalId)
-  }, [applyDashboardResults, refreshAudit])
+    if (!sessionRole) {
+      return undefined
+    }
+
+    let active = true
+    if (sessionRole === 'cfo') {
+      fetchDashboardData().then((results) => {
+        if (active) applyDashboardResults(results)
+      })
+    } else if (sessionRole === 'auditor') {
+      getAuditLogs()
+        .then((logs) => {
+          if (!active) return
+          setAuditLogs(logs)
+          setLastUpdated(new Date())
+          setDashboardError('')
+        })
+        .catch((error) => {
+          if (active) setDashboardError(`Audit logs: ${error.message}`)
+        })
+    }
+
+    if (sessionRole === 'cfo' || sessionRole === 'auditor') {
+      const intervalId = window.setInterval(() => {
+        if (active) refreshAudit()
+      }, REFRESH_INTERVAL)
+      return () => {
+        active = false
+        window.clearInterval(intervalId)
+      }
+    }
+    return () => {
+      active = false
+    }
+  }, [sessionRole, applyDashboardResults, refreshAudit])
 
   const visibleAuditLogs = useMemo(() => {
     const combined = [...triggerLogs, ...auditLogs]
@@ -1532,10 +1620,10 @@ function App() {
   const killSwitchActive =
     killSwitchOverride ?? Boolean(programmes[0]?.isPaused)
   const connectionStatus = {
-    CONNECTING: { label: 'CONNECTING TO API', className: 'is-connecting' },
-    LIVE: { label: 'LIVE EXPRESS API', className: 'is-online' },
-    MOCK: { label: 'MOCK DEMO MODE', className: 'is-mock' },
-    OFFLINE: { label: 'API OFFLINE', className: 'is-offline' },
+    CONNECTING: { label: 'API Connecting', className: 'is-connecting' },
+    LIVE: { label: 'API Live', className: 'is-online' },
+    MOCK: { label: 'API Mock', className: 'is-mock' },
+    OFFLINE: { label: 'API Offline', className: 'is-offline' },
   }[apiMode]
 
   function handleCapChange(studentId, value) {
@@ -1550,6 +1638,7 @@ function App() {
   }
 
   async function handleToggleKillSwitch() {
+    if (session?.role !== 'cfo') return
     const programme = programmes[0]
     if (!programme?._id) {
       setKillSwitchError('No programme is available to pause.')
@@ -1573,7 +1662,7 @@ function App() {
   }
 
   async function handleResetDemo() {
-    if (isTriggering || isResettingDemo) return
+    if (session?.role !== 'cfo' || isTriggering || isResettingDemo) return
 
     setIsResettingDemo(true)
     setDemoResetNotice('')
@@ -1679,6 +1768,7 @@ function App() {
   }
 
   async function handleRunPolicyScenario(scenario) {
+    if (session?.role !== 'cfo') return
     setIsTriggering(true)
     setTriggerError('')
     setPolicyTestResult(null)
@@ -1865,7 +1955,7 @@ function App() {
   }
 
   async function handleAgentTrigger() {
-    if (killSwitchActive) return
+    if (session?.role !== 'cfo' || killSwitchActive) return
     setIsTriggering(true)
     setTriggerError('')
     try {
@@ -1931,12 +2021,26 @@ function App() {
     }
   }
 
-  if (!session) {
+  const allowedViews = getAllowedViews(session?.role)
+  if (!session || allowedViews.length === 0) {
     return <AuthScreen onLogin={handleLogin} />
   }
 
+  const visibleView = allowedViews.includes(activeView)
+    ? activeView
+    : allowedViews[0]
   const ROLE_COLORS = { cfo: '#1d4ed8', student: '#047857', auditor: '#7c3aed' }
+  const ROLE_SHORT_LABELS = { cfo: 'CFO', student: 'Student', auditor: 'Auditor' }
   const userColor = ROLE_COLORS[session.role] || '#1d4ed8'
+  const userLabel = `${String(session.name || session.email || 'User').split(' ')[0]} · ${
+    ROLE_SHORT_LABELS[session.role] || session.role
+  }`
+  const navItems = [
+    { id: 'admin', label: 'CFO Admin Console', Icon: LayoutDashboard },
+    { id: 'analytics', label: 'Treasury & Savings', Icon: TrendingUp },
+    { id: 'auditor', label: 'Auditor General Hub', Icon: FileCheck2 },
+    { id: 'student', label: 'Student Portal', Icon: UserRound },
+  ]
 
   return (
     <div className="app-shell">
@@ -1952,51 +2056,29 @@ function App() {
             </span>
           </div>
           <nav className="view-switcher" aria-label="Workspace navigation">
-            <button
-              className={`view-switcher-button ${activeView === 'admin' ? 'active' : ''}`}
-              type="button"
-              aria-current={activeView === 'admin' ? 'page' : undefined}
-              onClick={() => setActiveView('admin')}
-            >
-              <LayoutDashboard size={15} />
-              CFO Admin Console
-            </button>
-            <button
-              className={`view-switcher-button ${activeView === 'analytics' ? 'active' : ''}`}
-              type="button"
-              aria-current={activeView === 'analytics' ? 'page' : undefined}
-              onClick={() => setActiveView('analytics')}
-            >
-              <TrendingUp size={15} />
-              Treasury &amp; Savings
-            </button>
-            <button
-              className={`view-switcher-button ${activeView === 'auditor' ? 'active' : ''}`}
-              type="button"
-              aria-current={activeView === 'auditor' ? 'page' : undefined}
-              onClick={() => setActiveView('auditor')}
-            >
-              <FileCheck2 size={15} />
-              Auditor-General Hub
-            </button>
-            <button
-              className={`view-switcher-button ${activeView === 'student' ? 'active' : ''}`}
-              type="button"
-              aria-current={activeView === 'student' ? 'page' : undefined}
-              onClick={() => setActiveView('student')}
-            >
-              <UserRound size={15} />
-              Student Portal
-            </button>
+            {navItems
+              .filter(({ id }) => allowedViews.includes(id))
+              .map(({ id, label, Icon }) => (
+                <button
+                  key={id}
+                  className={`view-switcher-button ${visibleView === id ? 'active' : ''}`}
+                  type="button"
+                  aria-current={visibleView === id ? 'page' : undefined}
+                  onClick={() => handleViewChange(id)}
+                >
+                  <Icon size={15} />
+                  {label}
+                </button>
+              ))}
           </nav>
           <div className="topbar-actions">
             <span
               className="xrpl-status-pill"
               role="status"
-              title="Demo status indicator; the backend does not expose a separate XRPL connection health signal."
+              title="This workspace is configured for XRPL Testnet."
             >
               <span className="xrpl-status-dot" />
-              XRPL Testnet Connected
+              XRPL Testnet
             </span>
             <span
               className={`environment-pill ${connectionStatus.className}`}
@@ -2007,12 +2089,13 @@ function App() {
               <span />
               {connectionStatus.label}
             </span>
-            <button
+            {session.role === 'cfo' && (
+              <button
               className={`header-kill-switch ${killSwitchActive ? 'engaged' : ''}`}
               type="button"
               role="switch"
               aria-checked={killSwitchActive}
-              aria-label="Pause New Authorisations"
+              aria-label={`Authorisations: ${killSwitchActive ? 'Paused' : 'Active'}`}
               aria-busy={isTogglingKillSwitch}
               disabled={isTogglingKillSwitch || !programmes[0]?._id}
               onClick={handleToggleKillSwitch}
@@ -2023,48 +2106,39 @@ function App() {
                   : 'Stops new payment signing and authorisations. It does not reverse transactions already settled on XRPL.')
               }
             >
-              <Power size={16} aria-hidden="true" />
               <span className="header-kill-copy">
-                <strong>Pause New Authorisations</strong>
-                <small>
+                <strong>
                   {isTogglingKillSwitch
-                    ? 'UPDATING…'
-                    : killSwitchActive
-                      ? 'ENGAGED · RUNS HALTED'
-                      : 'OFF · RUNS ENABLED'}
-                </small>
+                    ? 'Updating…'
+                    : `Authorisations: ${killSwitchActive ? 'Paused' : 'Active'}`}
+                </strong>
               </span>
               <span className="header-kill-track" aria-hidden="true">
                 <span />
               </span>
-            </button>
-            {killSwitchError && activeView === 'student' && (
-              <span className="header-kill-error" role="alert">
-                {killSwitchError}
-              </span>
+              </button>
             )}
-            <span className="user-pill">
-              <span className="user-pill-avatar" style={{ background: userColor }}>
-                {session.initials}
+            <div className="topbar-user-actions">
+              <span className="user-pill">
+                <span className="user-pill-avatar" style={{ background: userColor }}>
+                  {session.initials}
+                </span>
+                <span className="user-pill-label">{userLabel}</span>
               </span>
-              <span className="user-pill-info">
-                <strong>{session.name.split(' ')[0]}</strong>
-                <small>{session.roleLabel || session.role}</small>
-              </span>
-            </span>
-            <button
-              className="user-logout-btn"
-              type="button"
-              onClick={handleLogout}
-              aria-label="Sign out"
-            >
-              <Power size={13} />
-              Sign out
-            </button>
+              <button
+                className="user-logout-btn"
+                type="button"
+                onClick={handleLogout}
+                aria-label="Sign out"
+              >
+                <Power size={13} />
+                Sign Out
+              </button>
+            </div>
           </div>
         </div>
 
-        {activeView === 'admin' ? (
+        {visibleView === 'admin' ? (
           <AdminDashboard
             programmes={programmes}
             beneficiaries={beneficiaries}
@@ -2093,15 +2167,12 @@ function App() {
             onRunPolicyScenario={handleRunPolicyScenario}
             isResettingDemo={isResettingDemo}
           />
-        ) : activeView === 'analytics' ? (
+        ) : visibleView === 'analytics' ? (
           <AnalyticsDashboard />
-        ) : activeView === 'auditor' ? (
+        ) : visibleView === 'auditor' ? (
           <AuditorPortal auditLogs={visibleAuditLogs} />
         ) : (
-          <StudentPortal
-            beneficiaries={beneficiaries}
-            isLoadingBeneficiaries={isLoading}
-          />
+          <StudentPortal session={session} />
         )}
 
         <footer className="app-footer">

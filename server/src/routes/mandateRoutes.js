@@ -13,6 +13,7 @@ const {
   resetStore
 } = require('../data/store');
 const { getAccountLedgerInfo, getAdminWallet } = require('../xrpl/xrplClient');
+const requireAdminRole = require('../middleware/requireAdminRole');
 
 function serializeProgramme(programme) {
   const id = programme.id || programme._id;
@@ -44,7 +45,7 @@ function serializeSchedule(schedule) {
 }
 
 // POST /api/demo/reset (Restore local demo data without making XRPL requests)
-router.post('/demo/reset', (req, res) => {
+router.post('/demo/reset', requireAdminRole, (req, res) => {
   const resetState = resetStore();
   res.json({
     success: true,
@@ -64,7 +65,7 @@ router.get('/programmes', (req, res) => {
 });
 
 // POST /api/programmes (Create New Funding Mandate)
-router.post('/programmes', (req, res) => {
+router.post('/programmes', requireAdminRole, (req, res) => {
   const { name, sponsor, totalBudget } = req.body;
   if (!name || !totalBudget) {
     return res.status(400).json({ error: 'Name and totalBudget are required.' });
@@ -75,7 +76,7 @@ router.post('/programmes', (req, res) => {
 });
 
 // PATCH /api/programmes/:id (Update Mandate Settings/Budget)
-router.patch('/programmes/:id', (req, res) => {
+router.patch('/programmes/:id', requireAdminRole, (req, res) => {
   const updated = updateProgramme(req.params.id, req.body);
   if (!updated) {
     return res.status(404).json({ error: 'Programme not found' });
@@ -93,7 +94,7 @@ router.get('/programmes/:id', (req, res) => {
 });
 
 // PATCH /api/programmes/:id/toggle-pause (Admin Emergency Kill Switch)
-router.patch('/programmes/:id/toggle-pause', (req, res) => {
+router.patch('/programmes/:id/toggle-pause', requireAdminRole, (req, res) => {
   const programme = getProgrammeById(req.params.id);
   if (!programme) {
     return res.status(404).json({ error: 'Programme not found' });
@@ -119,7 +120,7 @@ router.get('/beneficiaries', (req, res) => {
 });
 
 // POST /api/beneficiaries (Onboard New Student Beneficiary)
-router.post('/beneficiaries', (req, res) => {
+router.post('/beneficiaries', requireAdminRole, (req, res) => {
   const { fullName, institution, monthlyAllowance, programmeId, studentId } = req.body;
   if (!fullName) {
     return res.status(400).json({ error: 'Student full name is required.' });
@@ -137,7 +138,7 @@ router.post('/beneficiaries', (req, res) => {
 });
 
 // PATCH /api/beneficiaries/:studentId (Adjust Allowance Cap or Status)
-router.patch('/beneficiaries/:studentId', (req, res) => {
+router.patch('/beneficiaries/:studentId', requireAdminRole, (req, res) => {
   const updated = updateBeneficiary(req.params.studentId, req.body);
   if (!updated) {
     return res.status(404).json({ error: 'Beneficiary not found' });

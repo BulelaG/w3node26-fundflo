@@ -39,6 +39,19 @@ export function subscribeToApiMode(subscriber) {
   return () => apiModeSubscribers.delete(subscriber)
 }
 
+function getActiveUserRole() {
+  if (typeof window === 'undefined') return ''
+
+  try {
+    const serializedSession = window.sessionStorage.getItem('ff_session')
+    if (!serializedSession) return ''
+    const session = JSON.parse(serializedSession)
+    return typeof session.role === 'string' ? session.role : ''
+  } catch {
+    return ''
+  }
+}
+
 const mockTxHash = '43CDC252A0DFD39BEB8EC781DEFA08AA4D91A2406FF969C90A7CCA3CB991674E'
 
 const mockData = {
@@ -134,24 +147,50 @@ const mockData = {
       txHash: null
     }
   ],
-  studentStatus: (studentId) => ({
-    studentId: studentId || 'STU-001',
-    fullName: studentId === 'STU-002' ? 'Naledi Khumalo' : 'Sipho Dlamini',
-    institution: 'WeThinkCode Cape Town',
-    monthlyAllowance: 10,
-    walletAddress: 'rUfjbcCNpfGduuSGs532cqDqh4wRGauunK',
-    disbursements: [
-      {
-        scheduleId: 'SCH-NOV-001',
-        period: 'November 2026',
-        amount: 10,
-        status: 'VERIFIED',
-        txHash: mockTxHash,
-        xrplExplorerUrl: `https://testnet.xrpl.org/transactions/${mockTxHash}`,
-        updatedAt: '2026-11-12T16:45:00.000Z'
-      }
-    ]
-  }),
+  studentStatus: (studentId) => {
+    const students = {
+      'STU-001': {
+        fullName: 'Sipho Dlamini',
+        institution: 'WeThinkCode Cape Town',
+        walletAddress: 'rUfjbcCNpfGduuSGs532cqDqh4wRGauunK',
+      },
+      'STU-002': {
+        fullName: 'Naledi Khumalo',
+        institution: 'WeThinkCode Johannesburg',
+        walletAddress: 'rEb8TK3gBgk5auZkwc6sHnwrGVJH8DuaLh',
+      },
+      'STU-003': {
+        fullName: 'Thabo Molefe',
+        institution: 'WeThinkCode Durban',
+        walletAddress: 'rN7n7otQDd6FczFgLdSqtcsAUxDkw6paa',
+      },
+    }
+    const resolvedStudentId =
+      studentId && Object.prototype.hasOwnProperty.call(students, studentId)
+        ? studentId
+        : 'STU-001'
+    const student = students[resolvedStudentId] || students['STU-001']
+    return {
+      studentId: resolvedStudentId,
+      ...student,
+      monthlyAllowance: 10,
+      disbursements:
+        resolvedStudentId === 'STU-001'
+          ? [
+              {
+                scheduleId: 'SCH-NOV-001',
+                studentId: resolvedStudentId,
+                period: 'November 2026',
+                amount: 10,
+                status: 'VERIFIED',
+                txHash: mockTxHash,
+                xrplExplorerUrl: `https://testnet.xrpl.org/transactions/${mockTxHash}`,
+                updatedAt: '2026-11-12T16:45:00.000Z',
+              },
+            ]
+          : [],
+    }
+  },
   auditLogs: () => [
     {
       _id: 'LOG-001',
@@ -379,7 +418,8 @@ async function request(
       method,
       headers: {
         'Content-Type': 'application/json',
-        Accept: 'application/json'
+        Accept: 'application/json',
+        'x-user-role': getActiveUserRole()
       },
       body: body ? JSON.stringify(body) : undefined
     })
@@ -396,7 +436,7 @@ async function request(
   }
 
   if (!response.ok && !acceptedStatuses.includes(response.status)) {
-    updateApiMode(endpoint, 'OFFLINE')
+    if (response.status !== 403) updateApiMode(endpoint, 'OFFLINE')
     const errorData = await response.json().catch(() => ({}))
     throw new Error(errorData.error || errorData.message || `Request failed with status ${response.status}`)
   }
@@ -500,8 +540,41 @@ export function getAnalytics() {
   return request('/analytics', { fallback: mockData.analytics })
 }
 
-export function getAuditorExportUrl(format = 'csv') {
-  return `${API_BASE_URL}/auditor/export?format=${format}`
+export async function downloadAuditorExport(format = 'csv') {
+  const path = `/auditor/export?format=${encodeURIComponent(format)}`
+  const endpoint = `GET ${path}`
+  let response
+
+  try {
+    response = await fetch(`${API_BASE_URL}${path}`, {
+      headers: {
+        Accept: 'text/csv, application/json',
+        'x-user-role': getActiveUserRole(),
+      },
+    })
+  } catch (error) {
+    updateApiMode(endpoint, 'OFFLINE')
+    throw error
+  }
+
+  if (!response.ok) {
+    if (response.status !== 403) updateApiMode(endpoint, 'OFFLINE')
+    const errorData = await response.json().catch(() => ({}))
+    throw new Error(
+      errorData.error || errorData.message || `Request failed with status ${response.status}`,
+    )
+  }
+
+  const blob = await response.blob()
+  updateApiMode(endpoint, 'LIVE')
+  const fileUrl = URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = fileUrl
+  link.download = `FundFlow_Forensic_Audit_Report.${format}`
+  document.body.appendChild(link)
+  link.click()
+  link.remove()
+  window.setTimeout(() => URL.revokeObjectURL(fileUrl), 0)
 }
 
 export function triggerAgent() {
@@ -594,7 +667,7 @@ export const api = {
   getAuditLogs,
   getAuditSummary,
   getAnalytics,
-  getAuditorExportUrl,
+  downloadAuditorExport,
   triggerAgentCycle,
   triggerAgent,
   getAgentStatus,

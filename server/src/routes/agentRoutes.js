@@ -1,9 +1,10 @@
 const express = require('express');
 const router = express.Router();
 const { agentInstance } = require('../agent/disbursementAgent');
+const requireAdminRole = require('../middleware/requireAdminRole');
 
 // POST /api/agent/trigger
-router.post('/agent/trigger', async (req, res) => {
+router.post('/agent/trigger', requireAdminRole, async (req, res) => {
   try {
     const report = await agentInstance.runCycle();
     res.json(report);

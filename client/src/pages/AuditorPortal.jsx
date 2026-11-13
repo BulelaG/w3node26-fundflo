@@ -58,8 +58,12 @@ export default function AuditorPortal({ auditLogs = [] }) {
     setTimeout(() => setCopiedHash(null), 2000);
   };
 
-  const handleExportCSV = () => {
-    window.open(api.getAuditorExportUrl('csv'), '_blank');
+  const handleExportCSV = async () => {
+    try {
+      await api.downloadAuditorExport('csv');
+    } catch (err) {
+      console.error('Failed to export audit dossier:', err);
+    }
   };
 
   return (

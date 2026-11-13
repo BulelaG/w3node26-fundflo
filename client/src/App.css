@@ -2443,6 +2443,11 @@ td small,
     margin-left: 0;
   }
 
+  .topbar-user-actions {
+    grid-column: 1 / -1;
+    justify-content: center;
+  }
+
   .student-id-tag {
     margin-left: 68px;
   }
@@ -2862,7 +2867,9 @@ td small,
 }
 
 .topbar-actions {
-  gap: 9px;
+  flex: 1 1 auto;
+  max-width: 100%;
+  gap: 7px;
   margin-left: auto;
 }
 
@@ -2872,8 +2879,17 @@ td small,
 }
 
 .user-pill,
-.user-pill-info {
+.user-pill-label {
   min-width: 0;
+}
+
+.topbar-user-actions {
+  display: flex;
+  flex: 0 0 auto;
+  min-width: 0;
+  align-items: center;
+  gap: 7px;
+  white-space: nowrap;
 }
 
 .user-logout-btn {
@@ -2889,6 +2905,7 @@ td small,
 
 .xrpl-status-pill {
   display: inline-flex;
+  flex: 0 0 auto;
   min-height: 30px;
   align-items: center;
   gap: 8px;
@@ -2900,6 +2917,12 @@ td small,
   font-size: 9px;
   font-weight: 720;
   letter-spacing: 0.1px;
+  white-space: nowrap;
+}
+
+.environment-pill,
+.header-kill-switch {
+  flex: 0 0 auto;
   white-space: nowrap;
 }
 
@@ -2928,8 +2951,8 @@ td small,
   display: inline-flex;
   min-height: 42px;
   align-items: center;
-  gap: 9px;
-  padding: 5px 10px;
+  gap: 7px;
+  padding: 5px 9px;
   color: #92400e;
   border: 1px solid #fcd34d;
   border-radius: 10px;
@@ -2964,9 +2987,9 @@ td small,
 }
 
 .header-kill-copy {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
+  min-width: 0;
+  flex: 0 0 auto;
+  display: block;
   white-space: nowrap;
 }
 
@@ -2975,16 +2998,12 @@ td small,
   font-weight: 750;
 }
 
-.header-kill-copy small {
-  font-size: 7px;
-  font-weight: 750;
-  letter-spacing: 0.45px;
-}
-
 .header-kill-track {
   width: 27px;
   height: 15px;
   display: inline-flex;
+  min-width: 0;
+  max-width: 100%;
   flex: 0 0 auto;
   align-items: center;
   padding: 2px;
@@ -3399,6 +3418,8 @@ td small,
 
 .wallet-copy-button {
   display: inline-flex;
+  min-width: 0;
+  flex: 0 0 auto;
   flex: 0 0 auto;
   align-items: center;
   gap: 5px;

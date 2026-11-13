@@ -1,14 +1,14 @@
 import React, { useState } from 'react'
 import { Waves, ShieldCheck, Eye, EyeOff, AlertCircle } from 'lucide-react'
 
-// Pre-seeded demo accounts — no real credentials needed
+// Preconfigured workspace accounts used by the local sign-in flow.
 const DEMO_ACCOUNTS = [
   {
     id: 'cfo-1',
     role: 'cfo',
     roleLabel: 'CFO / Bursary Admin',
-    name: 'Nomvula Dlamini',
-    email: 'nomvula@fundflow.co.za',
+    name: 'Nombulelo Dlamini',
+    email: 'nombulelo@fundflow.co.za',
     institution: 'WeThinkCode_',
     initials: 'ND',
     pin: '1234',
@@ -19,6 +19,7 @@ const DEMO_ACCOUNTS = [
     role: 'student',
     roleLabel: 'Student Beneficiary',
     name: 'Sipho Dlamini',
+    studentId: 'STU-001',
     email: 'sipho.d@students.wtc.ac.za',
     institution: 'WeThinkCode_',
     initials: 'SD',
@@ -28,7 +29,7 @@ const DEMO_ACCOUNTS = [
   {
     id: 'auditor-1',
     role: 'auditor',
-    roleLabel: 'Auditor-General Inspector',
+    roleLabel: 'Auditor Inspector',
     name: 'Thabo Mokoena',
     email: 'tmokoena@agsa.gov.za',
     institution: 'Auditor-General South Africa',
@@ -65,9 +66,8 @@ const ROLE_META = {
 export default function AuthScreen({ onLogin }) {
   const [mode, setMode] = useState('login') // 'login' | 'signup'
   const [selectedRole, setSelectedRole] = useState('cfo')
-  const [selectedAccountId, setSelectedAccountId] = useState('cfo-1')
   const [showPin, setShowPin] = useState(false)
-  const [pin, setPin] = useState('')
+  const [pin, setPin] = useState(DEMO_ACCOUNTS[0].pin)
   const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false)
 
@@ -78,34 +78,31 @@ export default function AuthScreen({ onLogin }) {
   const [signupPin, setSignupPin] = useState('')
   const [signupPinConfirm, setSignupPinConfirm] = useState('')
 
-  const demoAccountsForRole = DEMO_ACCOUNTS.filter(a => a.role === selectedRole)
-  const selectedAccount = DEMO_ACCOUNTS.find(a => a.id === selectedAccountId) || demoAccountsForRole[0]
+  const selectedAccount =
+    DEMO_ACCOUNTS.find((account) => account.role === selectedRole) ||
+    DEMO_ACCOUNTS[0]
   const roleMeta = ROLE_META[selectedRole]
 
   function handleRoleSelect(role) {
+    const account = DEMO_ACCOUNTS.find((item) => item.role === role)
     setSelectedRole(role)
-    setSelectedAccountId(DEMO_ACCOUNTS.find(a => a.role === role)?.id || '')
-    setPin('')
+    setPin(account?.pin || '')
     setError('')
   }
 
-  async function handleLogin(e) {
+  function handleLogin(e) {
     e.preventDefault()
     setError('')
 
     if (!pin.trim()) {
-      setError('Please enter your demo PIN to continue.')
+      setError('Please enter your PIN to continue.')
       return
     }
     if (pin !== selectedAccount.pin) {
-      setError(`Incorrect PIN. Hint: use ${selectedAccount.pin} for this demo account.`)
+      setError('Incorrect PIN. Please check your credentials.')
       return
     }
 
-    setIsLoading(true)
-    // Simulate network delay
-    await new Promise(r => setTimeout(r, 600))
-    setIsLoading(false)
     onLogin({ ...selectedAccount })
   }
 
@@ -126,10 +123,12 @@ export default function AuthScreen({ onLogin }) {
     const newAccount = {
       id: `custom-${Date.now()}`,
       role: selectedRole,
-      roleLabel: ROLE_META[selectedRole] ? Object.keys(ROLE_META).find(k => k === selectedRole) : 'cfo',
+      roleLabel:
+        DEMO_ACCOUNTS.find((account) => account.role === selectedRole)?.roleLabel ||
+        'CFO / Bursary Admin',
       name: signupName.trim(),
       email: signupEmail.trim(),
-      institution: signupInstitution.trim() || 'FundFlow Demo',
+      institution: signupInstitution.trim() || 'FundFlow',
       initials: signupName.trim().split(' ').map(p => p[0]).slice(0, 2).join('').toUpperCase(),
       landingView: DEMO_ACCOUNTS.find(a => a.role === selectedRole)?.landingView || 'admin',
     }
@@ -154,17 +153,17 @@ export default function AuthScreen({ onLogin }) {
             <ShieldCheck size={14} />
             XRPL Testnet · Zero-Trust Policy Engine
           </div>
-          <h1>AI-powered student funding, with airtight assurance.</h1>
+          <h1>Policy-gated student funding with verifiable assurance</h1>
           <p>
             Autonomous disbursements gated by an independent policy engine.
             Every payment is immutably recorded on the XRP Ledger — provable,
-            auditable, and instant.
+            auditable, and settled in seconds.
           </p>
           <div className="auth-features">
             {[
               ['🏦', 'Autonomous agent disburses on-schedule'],
               ['🛡️', 'Policy engine blocks fraud before the ledger'],
-              ['📋', 'AGSA-grade audit trail on-chain'],
+              ['📋', 'Audit-ready policy logs paired with validated XRPL proofs'],
               ['⚡', '3-second settlement vs. 2-day EFT'],
             ].map(([icon, text]) => (
               <div key={text} className="auth-feature-item">
@@ -230,43 +229,16 @@ export default function AuthScreen({ onLogin }) {
 
           {mode === 'login' ? (
             <form className="auth-form" onSubmit={handleLogin}>
-              {/* Demo account selector */}
-              <div className="auth-field">
-                <label className="auth-field-label">Demo account</label>
-                <div className="auth-account-list">
-                  {demoAccountsForRole.map(account => (
-                    <button
-                      key={account.id}
-                      type="button"
-                      className={`auth-account-item ${selectedAccountId === account.id ? 'active' : ''}`}
-                      onClick={() => { setSelectedAccountId(account.id); setPin(''); setError('') }}
-                    >
-                      <span className="auth-account-avatar"
-                        style={{ background: roleMeta.color }}>
-                        {account.initials}
-                      </span>
-                      <span className="auth-account-info">
-                        <strong>{account.name}</strong>
-                        <small>{account.email}</small>
-                      </span>
-                      {selectedAccountId === account.id && (
-                        <span className="auth-account-check">✓</span>
-                      )}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
               <div className="auth-field">
                 <label className="auth-field-label" htmlFor="pin-input">
-                  Demo PIN
+                  Access PIN
                 </label>
                 <div className="auth-pin-wrap">
                   <input
                     id="pin-input"
                     className="form-input"
                     type={showPin ? 'text' : 'password'}
-                    placeholder="Enter PIN (hint: shown below)"
+                    placeholder="Enter PIN"
                     value={pin}
                     onChange={e => { setPin(e.target.value); setError('') }}
                     maxLength={8}
@@ -281,10 +253,6 @@ export default function AuthScreen({ onLogin }) {
                     {showPin ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                 </div>
-                <p className="auth-pin-hint">
-                  Demo PIN for <strong>{selectedAccount?.name}</strong>:{' '}
-                  <code>{selectedAccount?.pin}</code>
-                </p>
               </div>
 
               {error && (
@@ -300,12 +268,11 @@ export default function AuthScreen({ onLogin }) {
                 disabled={isLoading}
                 style={{ background: roleMeta.color }}
               >
-                {isLoading ? 'Signing in…' : `Sign in as ${DEMO_ACCOUNTS.find(a => a.id === selectedAccountId)?.name?.split(' ')[0] || 'User'}`}
+                {isLoading ? 'Signing in…' : 'Sign in'}
               </button>
 
               <p className="auth-disclaimer">
-                This is a hackathon demo. No real funds are involved.
-                All transactions run on XRPL Testnet.
+                No real funds are involved. All transactions run on XRPL Testnet.
               </p>
             </form>
           ) : (
@@ -389,7 +356,7 @@ export default function AuthScreen({ onLogin }) {
               </button>
 
               <p className="auth-disclaimer">
-                Demo only — no real credentials are stored.
+                No real credentials are stored.
               </p>
             </form>
           )}
