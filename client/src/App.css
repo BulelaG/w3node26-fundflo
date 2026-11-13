@@ -5259,3 +5259,105 @@ td small,
   border-color: #e7e5e4;
   background: #fff;
 }
+
+/* ============================================================
+   POLICY GATE HIGHLIGHTS IN AUDIT DRAWER (SAFE/BREX PATTERN)
+   ============================================================ */
+.drawer-policy-gate-card {
+  margin: 16px 0 20px;
+  padding: 14px 16px;
+  background: #FEF2F2;
+  border: 1px solid #FECACA;
+  border-radius: 10px;
+  border-left: 4px solid #DC2626;
+}
+
+.drawer-settled-gate-card {
+  margin: 16px 0 20px;
+  padding: 14px 16px;
+  background: #ECFDF5;
+  border: 1px solid #A7F3D0;
+  border-radius: 10px;
+  border-left: 4px solid #059669;
+}
+
+.gate-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 6px;
+}
+
+.gate-icon-alert {
+  color: #DC2626;
+  flex-shrink: 0;
+}
+
+.gate-icon-success {
+  color: #059669;
+  flex-shrink: 0;
+}
+
+.gate-header strong {
+  display: block;
+  font-size: 13px;
+  color: #0F172A;
+  font-weight: 700;
+}
+
+.gate-severity {
+  display: inline-block;
+  font-size: 10px;
+  color: #991B1B;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.gate-settled-badge {
+  display: inline-block;
+  font-size: 10px;
+  color: #047857;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.gate-desc {
+  font-size: 12px;
+  color: #334155;
+  line-height: 1.5;
+  margin: 0;
+}
+
+.audit-timestamp {
+  font-size: 12px;
+  color: #334155;
+  font-weight: 500;
+  display: flex;
+  align-items: center;
+}
+
+/* ============================================================
+   PROGRAMME CARD ENHANCEMENTS (MERCURY METALLIC PATTERN)
+   ============================================================ */
+.programme-panel {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid #CBD5E1;
+  box-shadow: 0 4px 20px rgba(15, 23, 42, 0.05);
+}
+
+.programme-panel::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 3px;
+  background: linear-gradient(90deg, #101D31 0%, #59DFC0 50%, #0284C7 100%);
+}
+
+.programme-panel .panel-heading {
+  margin-bottom: 14px;
+}
