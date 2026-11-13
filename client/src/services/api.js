@@ -1,5 +1,43 @@
 export const API_BASE_URL = 'http://localhost:5000/api'
 
+let apiMode = 'CONNECTING'
+const mockEndpoints = new Set()
+const offlineEndpoints = new Set()
+const liveEndpoints = new Set()
+const apiModeSubscribers = new Set()
+
+function updateApiMode(endpoint, mode) {
+  mockEndpoints.delete(endpoint)
+  offlineEndpoints.delete(endpoint)
+  liveEndpoints.delete(endpoint)
+
+  if (mode === 'MOCK') mockEndpoints.add(endpoint)
+  if (mode === 'OFFLINE') offlineEndpoints.add(endpoint)
+  if (mode === 'LIVE') liveEndpoints.add(endpoint)
+
+  const nextMode = offlineEndpoints.size
+    ? 'OFFLINE'
+    : mockEndpoints.size
+      ? 'MOCK'
+      : liveEndpoints.size
+        ? 'LIVE'
+        : 'CONNECTING'
+
+  if (nextMode !== apiMode) {
+    apiMode = nextMode
+    apiModeSubscribers.forEach((subscriber) => subscriber())
+  }
+}
+
+export function getApiMode() {
+  return apiMode
+}
+
+export function subscribeToApiMode(subscriber) {
+  apiModeSubscribers.add(subscriber)
+  return () => apiModeSubscribers.delete(subscriber)
+}
+
 const mockTxHash =
   'E3F92C80A5D6A1B2C3D4E5F60718293A4B5C6D7E8F90123456789ABCDEF0B37A'
 
@@ -197,12 +235,21 @@ const mockData = {
 
 async function request(path, { method = 'GET', fallback } = {}) {
   const url = `${API_BASE_URL}${path}`
-  const response = await fetch(url, {
-    method,
-    headers: { Accept: 'application/json' },
-  })
+  const endpoint = `${method} ${path}`
+  let response
+
+  try {
+    response = await fetch(url, {
+      method,
+      headers: { Accept: 'application/json' },
+    })
+  } catch (error) {
+    updateApiMode(endpoint, 'OFFLINE')
+    throw error
+  }
 
   if (response.status === 404) {
+    updateApiMode(endpoint, 'MOCK')
     console.warn(
       `[FundFlow API] ${method} ${path} returned 404; using mock data.`,
     )
@@ -210,12 +257,20 @@ async function request(path, { method = 'GET', fallback } = {}) {
   }
 
   if (!response.ok) {
+    updateApiMode(endpoint, 'OFFLINE')
     throw new Error(
       `[FundFlow API] ${method} ${path} failed with status ${response.status}.`,
     )
   }
 
-  return response.json()
+  try {
+    const data = await response.json()
+    updateApiMode(endpoint, 'LIVE')
+    return data
+  } catch (error) {
+    updateApiMode(endpoint, 'OFFLINE')
+    throw error
+  }
 }
 
 export function getHealth() {
