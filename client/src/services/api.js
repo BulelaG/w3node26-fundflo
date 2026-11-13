@@ -1,4 +1,4 @@
-export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'http://localhost:5000/api'
+export const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || (typeof window !== 'undefined' ? '/api' : 'http://localhost:5000/api')
 export const XRP_TO_ZAR_DEMO_RATE = 165
 
 let apiMode = 'CONNECTING'
