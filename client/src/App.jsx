@@ -45,7 +45,9 @@ import {
 } from './services/api.js'
 import AnalyticsDashboard from './pages/AnalyticsDashboard.jsx'
 import AuditorPortal from './pages/AuditorPortal.jsx'
+import AuthScreen from './components/AuthScreen.jsx'
 import './App.css'
+import './auth.css'
 
 const REFRESH_INTERVAL = 30000
 const ZAR_PER_RLUSD = 18
@@ -1282,6 +1284,12 @@ function StudentPortal({ beneficiaries, isLoadingBeneficiaries }) {
 }
 
 function App() {
+  const [session, setSession] = useState(() => {
+    try {
+      const saved = sessionStorage.getItem('ff_session')
+      return saved ? JSON.parse(saved) : null
+    } catch { return null }
+  })
   const [activeView, setActiveView] = useState('admin')
   const [programmes, setProgrammes] = useState([])
   const [beneficiaries, setBeneficiaries] = useState([])
@@ -1306,6 +1314,18 @@ function App() {
     getApiMode,
     getApiMode,
   )
+
+  function handleLogin(account) {
+    sessionStorage.setItem('ff_session', JSON.stringify(account))
+    setSession(account)
+    setActiveView(account.landingView || 'admin')
+  }
+
+  function handleLogout() {
+    sessionStorage.removeItem('ff_session')
+    setSession(null)
+    setActiveView('admin')
+  }
 
   const applyDashboardResults = useCallback((results) => {
     const errors = []
@@ -1508,6 +1528,13 @@ function App() {
     }
   }
 
+  if (!session) {
+    return <AuthScreen onLogin={handleLogin} />
+  }
+
+  const ROLE_COLORS = { cfo: '#1d4ed8', student: '#047857', auditor: '#7c3aed' }
+  const userColor = ROLE_COLORS[session.role] || '#1d4ed8'
+
   return (
     <div className="app-shell">
       <div className="workspace">
@@ -1613,6 +1640,24 @@ function App() {
                 {killSwitchError}
               </span>
             )}
+            <span className="user-pill">
+              <span className="user-pill-avatar" style={{ background: userColor }}>
+                {session.initials}
+              </span>
+              <span className="user-pill-info">
+                <strong>{session.name.split(' ')[0]}</strong>
+                <small>{session.roleLabel || session.role}</small>
+              </span>
+            </span>
+            <button
+              className="user-logout-btn"
+              type="button"
+              onClick={handleLogout}
+              aria-label="Sign out"
+            >
+              <Power size={13} />
+              Sign out
+            </button>
           </div>
         </div>
 
