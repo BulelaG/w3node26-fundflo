@@ -654,6 +654,13 @@ export function resetDemo() {
   return request('/demo/reset', { method: 'POST' })
 }
 
+export function askClaudeCopilot(messages) {
+  return request('/agent/copilot', {
+    method: 'POST',
+    body: JSON.stringify({ messages })
+  })
+}
+
 // Default export object providing all functions for pages
 export const api = {
   getHealth,
@@ -678,7 +685,8 @@ export const api = {
   getStudentStatus,
   claimStudentAllowance,
   validateAndPay,
-  resetDemo
+  resetDemo,
+  askClaudeCopilot
 }
 
 export default api

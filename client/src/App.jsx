@@ -55,6 +55,7 @@ import AuditorPortal from './pages/AuditorPortal.jsx'
 import AuthScreen from './components/AuthScreen.jsx'
 import AuditDetailDrawer from './components/AuditDetailDrawer.jsx'
 import CopyValueButton from './components/CopyValueButton.jsx'
+import ClaudeCopilotWidget from './components/ClaudeCopilotWidget.jsx'
 import './App.css'
 import './auth.css'
 import './glassmorphism.css'
@@ -2322,6 +2323,9 @@ function App() {
             XRPL Testnet
           </span>
         </footer>
+
+        {/* Claude AI Operations Copilot Widget (Accessible to CFO and Auditors) */}
+        <ClaudeCopilotWidget />
       </div>
     </div>
   )
