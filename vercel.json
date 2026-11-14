@@ -4,25 +4,16 @@
     "client": {
       "root": "client",
       "framework": "vite"
-    },
-    "server": {
-      "root": "server",
-      "framework": "express",
-      "entrypoint": "index.js"
     }
   },
   "rewrites": [
     {
-      "source": "/api",
-      "destination": {
-        "service": "server"
-      }
+      "source": "/api/:path*",
+      "destination": "https://fundflow-api-a9te.onrender.com/api/:path*"
     },
     {
-      "source": "/api/(.*)",
-      "destination": {
-        "service": "server"
-      }
+      "source": "/api",
+      "destination": "https://fundflow-api-a9te.onrender.com/api"
     },
     {
       "source": "/(.*)",
