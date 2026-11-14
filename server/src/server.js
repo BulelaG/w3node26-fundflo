@@ -73,9 +73,10 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Only start local HTTP listener if running outside Vercel serverless
-if (!process.env.VERCEL && process.env.NODE_ENV !== 'production' && require.main === module) {
-  app.listen(PORT, () => {
+// Start the HTTP listener whenever this file is the process entrypoint (local dev,
+// Render, Docker, any always-on host). Vercel imports the app instead and must not listen.
+if (require.main === module && !process.env.VERCEL) {
+  app.listen(PORT, '0.0.0.0', () => {
     console.log(`====================================================`);
     console.log(` FundFlow Engine Active on http://localhost:${PORT}`);
     console.log(` Healthcheck: http://localhost:${PORT}/api/health`);
